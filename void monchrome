@@ -1,0 +1,755 @@
+-- Initializing core services and config parameters...
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+local LogService = game:GetService("LogService")
+local Lighting = game:GetService("Lighting")
+
+-- [[ CONFIG ]] --
+local BACKGROUND_IMAGE = "rbxassetid://101198077444323"
+local DISCORD_LINK = "https://discord.gg/UsernameMuDisini"
+
+local Config = {
+    ShowFov = false,
+    AimActive = false,
+    AimTarget = "Head",
+    HitboxActive = false,
+    BoxEspActive = false,
+    TracerActive = false,
+    ChamsEspActive = false,
+    SpeedActive = false,
+    JumpActive = false,
+    FlyActive = false,
+    FovRadius = 150,
+    HitboxSize = 15,
+    SpeedValue = 100,
+    JumpValue = 150,
+    FlyValue = 100,
+    
+    -- Features Config
+    NoClipActive = false,
+    AntiReportActive = true, -- Default aktif untuk keamanan
+    AntiBanActive = true,    -- Default aktif untuk keamanan
+    FpsUnlockActive = false,
+    PotatoModeActive = false
+}
+
+-- ========================================== --
+--  [[ BACKGROUND SECURITY CORE ]]            --
+-- ========================================== --
+
+-- Intercept Log untuk Anti Report
+LogService.MessageOut:Connect(function(message)
+    if Config.AntiReportActive then
+        local lowerMessage = string.lower(message)
+        if string.find(lowerMessage, "report") or string.find(lowerMessage, "cheat") or string.find(lowerMessage, "exploit") then 
+            return 
+        end
+    end
+end)
+
+-- Loop Pengaman Nama Script untuk Anti Ban
+task.spawn(function()
+    while task.wait(0.5) do
+        if Config.AntiBanActive and script then
+            pcall(function()
+                if script.Name ~= "CoreScript" then
+                    script.Name = "CoreScript"
+                end
+            end)
+        end
+    end
+end)
+
+-- ========================================== --
+
+-- [[ DRAWING FOV CIRCLE ]] --
+local FovCircle = Drawing.new("Circle")
+FovCircle.Color = Color3.fromRGB(255, 255, 255)
+FovCircle.Thickness = 1.5
+FovCircle.NumSides = 100
+FovCircle.Radius = Config.FovRadius
+FovCircle.Filled = false
+FovCircle.Visible = false
+
+-- [[ CACHE UNTUK DRAWING ESP ]] --
+local EspCache = {}
+
+local function CreateEspObjects(player)
+    if EspCache[player] then return end
+    local box = Drawing.new("Square")
+    box.Color = Color3.fromRGB(255, 255, 255)
+    box.Thickness = 1.5
+    box.Filled = false
+    box.Visible = false
+
+    local tracer = Drawing.new("Line")
+    tracer.Color = Color3.fromRGB(150, 150, 150)
+    tracer.Thickness = 1.2
+    tracer.Visible = false
+
+    EspCache[player] = {Box = box, Tracer = tracer}
+end
+
+local function RemoveEspObjects(player)
+    if EspCache[player] then
+        pcall(function()
+            EspCache[player].Box:Destroy()
+            EspCache[player].Tracer:Destroy()
+        end)
+        EspCache[player] = nil
+    end
+end
+
+for _, p in pairs(Players:GetPlayers()) do
+    if p ~= LocalPlayer then CreateEspObjects(p) end
+end
+Players.PlayerAdded:Connect(function(p) if p ~= LocalPlayer then CreateEspObjects(p) end end)
+Players.PlayerRemoving:Connect(RemoveEspObjects)
+
+-- [[ DRAG SYSTEM ]] --
+local function MakeDraggable(frame)
+    local dragging, dragInput, dragStart, startPos
+    frame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragStart = input.Position
+            startPos = frame.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then dragging = false end
+            end)
+        end
+    end)
+    frame.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement then dragInput = input end
+    end)
+    RunService.RenderStepped:Connect(function()
+        if dragging and dragInput then
+            local delta = dragInput.Position - dragStart
+            local targetPos = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+            TweenService:Create(frame, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = targetPos}):Play()
+        end
+    end)
+end
+
+-- [[ MAIN UI ELEMENTS ]] --
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "VoidV2_NarutoMono"
+ScreenGui.ResetOnSpawn = false
+if gethui then ScreenGui.Parent = gethui() else ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
+
+local MainFrame = Instance.new("ImageLabel")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 580, 0, 440)
+MainFrame.Position = UDim2.new(0.5, -290, 0.5, -220)
+MainFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+MainFrame.BackgroundTransparency = 0.15
+MainFrame.Image = BACKGROUND_IMAGE
+MainFrame.ImageTransparency = 0.65
+MainFrame.ScaleType = Enum.ScaleType.Crop
+MainFrame.BorderSizePixel = 0
+MainFrame.Parent = ScreenGui
+MakeDraggable(MainFrame)
+
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 14)
+local UIStroke = Instance.new("UIStroke", MainFrame)
+UIStroke.Color = Color3.fromRGB(255, 255, 255)
+UIStroke.Thickness = 1.5
+UIStroke.Transparency = 0.45
+
+-- Minimize & Maximize Buttons
+local MinBtn = Instance.new("TextButton")
+MinBtn.Size = UDim2.new(0, 30, 0, 30)
+MinBtn.Position = UDim2.new(1, -45, 0, 15)
+MinBtn.BackgroundTransparency = 1
+MinBtn.Text = "—"
+MinBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+MinBtn.Font = Enum.Font.MontserratBold
+MinBtn.TextSize = 14
+MinBtn.Parent = MainFrame
+
+local MaxBtn = Instance.new("TextButton")
+MaxBtn.Size = UDim2.new(0, 80, 0, 45)
+MaxBtn.Position = UDim2.new(0, 25, 0, 25)
+MaxBtn.BackgroundColor3 = Color3.fromRGB(12, 12, 12)
+MaxBtn.BackgroundTransparency = 0.2
+MaxBtn.Text = "✨VOID✨"
+MaxBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+MaxBtn.Font = Enum.Font.MontserratBold
+MaxBtn.TextSize = 10
+MaxBtn.Visible = false
+MaxBtn.Parent = ScreenGui
+
+Instance.new("UICorner", MaxBtn).CornerRadius = UDim.new(0, 8)
+local MaxStroke = Instance.new("UIStroke", MaxBtn)
+MaxStroke.Color = Color3.fromRGB(255, 255, 255)
+MaxStroke.Thickness = 1.5
+MaxStroke.Transparency = 0.3
+
+MinBtn.MouseButton1Click:Connect(function()
+    TweenService:Create(MainFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(0, 0, 0, 0), BackgroundTransparency = 1, ImageTransparency = 1}):Play()
+    task.wait(0.25)
+    MainFrame.Visible = false
+    MaxBtn.Visible = true
+end)
+
+MaxBtn.MouseButton1Click:Connect(function()
+    MaxBtn.Visible = false
+    MainFrame.Visible = true
+    TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.new(0, 580, 0, 440), BackgroundTransparency = 0.15, ImageTransparency = 0.65}):Play()
+end)
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 40)
+Title.Position = UDim2.new(0, 0, 0, 5)
+Title.BackgroundTransparency = 1
+Title.Text = "✦  V O I D   V 2   //   M O N O C H R O M E  ✦"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.Font = Enum.Font.MontserratBold
+Title.TextSize = 13
+Title.Parent = MainFrame
+
+-- [[ SISTEM LAYOUT TAB BAR ]] --
+local TabBar = Instance.new("Frame", MainFrame)
+TabBar.Size = UDim2.new(0, 130, 1, -60)
+TabBar.Position = UDim2.new(0, 15, 0, 45)
+TabBar.BackgroundTransparency = 0.85
+TabBar.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+Instance.new("UICorner", TabBar).CornerRadius = UDim.new(0, 8)
+
+local TabListLayout = Instance.new("UIListLayout", TabBar)
+TabListLayout.Padding = UDim.new(0, 5)
+TabListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+local ContentContainer = Instance.new("Frame", MainFrame)
+ContentContainer.Size = UDim2.new(1, -170, 1, -60)
+ContentContainer.Position = UDim2.new(0, 155, 0, 45)
+ContentContainer.BackgroundTransparency = 1
+
+local Tabs = {}
+local ActiveTab = nil
+
+local function CreateTab(tabName)
+    local tabBtn = Instance.new("TextButton", TabBar)
+    tabBtn.Size = UDim2.new(0.9, 0, 0, 32)
+    tabBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    tabBtn.BackgroundTransparency = 0.5
+    tabBtn.Text = string.upper(tabName)
+    tabBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
+    tabBtn.Font = Enum.Font.MontserratBold
+    tabBtn.TextSize = 9
+    Instance.new("UICorner", tabBtn).CornerRadius = UDim.new(0, 6)
+    
+    local scrollFrame = Instance.new("ScrollingFrame", ContentContainer)
+    scrollFrame.Size = UDim2.new(1, 0, 1, 0)
+    scrollFrame.BackgroundTransparency = 1
+    scrollFrame.CanvasSize = UDim2.new(0, 0, 4.5, 0)
+    scrollFrame.ScrollBarThickness = 2
+    scrollFrame.ScrollBarImageColor3 = Color3.fromRGB(255, 255, 255)
+    scrollFrame.Visible = false
+    
+    local listLayout = Instance.new("UIListLayout", scrollFrame)
+    listLayout.Padding = UDim.new(0, 6)
+    listLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    
+    Tabs[tabName] = {Button = tabBtn, Frame = scrollFrame}
+    
+    tabBtn.MouseButton1Click:Connect(function()
+        for _, t in pairs(Tabs) do
+            t.Frame.Visible = false
+            t.Button.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+            t.Button.TextColor3 = Color3.fromRGB(150, 150, 150)
+        end
+        scrollFrame.Visible = true
+        tabBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        tabBtn.TextColor3 = Color3.fromRGB(10, 10, 10)
+    end)
+    
+    if not ActiveTab then
+        scrollFrame.Visible = true
+        tabBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        tabBtn.TextColor3 = Color3.fromRGB(10, 10, 10)
+        ActiveTab = tabName
+    end
+    
+    return scrollFrame
+end
+
+-- [[ HOVER UTILITY ]] --
+local function ApplySmoothHover(element, stroke, baseColor, hoverColor, baseTrans, hoverTrans)
+    element.MouseEnter:Connect(function()
+        TweenService:Create(element, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = hoverColor, BackgroundTransparency = hoverTrans}):Play()
+    end)
+    element.MouseLeave:Connect(function()
+        TweenService:Create(element, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = baseColor, BackgroundTransparency = baseTrans}):Play()
+    end)
+end
+
+-- [[ SEPARATOR HEADERS FOR COMBINED SECTIONS ]] --
+local function CreateSectionHeader(container, titleText)
+    local frame = Instance.new("Frame", container)
+    frame.Size = UDim2.new(0.98, 0, 0, 25)
+    frame.BackgroundTransparency = 1
+    
+    local txt = Instance.new("TextLabel", frame)
+    txt.Size = UDim2.new(1, 0, 1, 0)
+    txt.BackgroundTransparency = 1
+    txt.Text = "—— [ " .. string.upper(titleText) .. " ] ——"
+    txt.TextColor3 = Color3.fromRGB(255, 255, 255)
+    txt.Font = Enum.Font.MontserratBold
+    txt.TextSize = 10
+    txt.TextTransparency = 0.3
+end
+
+-- [[ BUILDERS FOR ITEMS ]] --
+local function CreateToggle(container, text, key, callback)
+    local btn = Instance.new("TextButton", container)
+    btn.Size = UDim2.new(0.98, 0, 0, 34)
+    btn.BackgroundColor3 = Config[key] and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(18, 18, 18)
+    btn.BackgroundTransparency = Config[key] and 0.15 or 0.45
+    btn.Text = "    " .. string.upper(text) .. (Config[key] and "    ✦   [ + ] ON" or "    ✦   [ - ] OFF")
+    btn.TextColor3 = Config[key] and Color3.fromRGB(10, 10, 10) or Color3.fromRGB(180, 180, 180)
+    btn.Font = Enum.Font.MontserratBold
+    btn.TextSize = 9
+    btn.TextXAlignment = Enum.TextXAlignment.Left
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+
+    local btnStroke = Instance.new("UIStroke", btn)
+    btnStroke.Color = Config[key] and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(60, 60, 60)
+    btnStroke.Thickness = 1.2
+    
+    ApplySmoothHover(btn, btnStroke, Color3.fromRGB(18, 18, 18), Color3.fromRGB(30, 30, 30), 0.45, 0.3)
+
+    btn.MouseButton1Click:Connect(function()
+        Config[key] = not Config[key]
+        btn.Text = "    " .. string.upper(text) .. (Config[key] and "    ✦   [ + ] ON" or "    ✦   [ - ] OFF")
+        
+        local targetBg = Config[key] and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(18, 18, 18)
+        local targetText = Config[key] and Color3.fromRGB(10, 10, 10) or Color3.fromRGB(180, 180, 180)
+        
+        TweenService:Create(btn, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = targetBg, BackgroundTransparency = Config[key] and 0.15 or 0.45, TextColor3 = targetText}):Play()
+        btnStroke.Color = Config[key] and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(60, 60, 60)
+        
+        if callback then callback(Config[key]) end
+    end)
+end
+
+local function CreateAdjuster(container, text, activeKey, valueKey)
+    local frame = Instance.new("Frame", container)
+    frame.Size = UDim2.new(0.98, 0, 0, 65)
+    frame.BackgroundColor3 = Color3.fromRGB(12, 12, 12)
+    frame.BackgroundTransparency = 0.4
+    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 6)
+
+    local label = Instance.new("TextLabel", frame)
+    label.Size = UDim2.new(1, -20, 0, 26)
+    label.Position = UDim2.new(0, 12, 0, 4)
+    label.Text = "  " .. string.upper(text) .. "    »   " .. (Config[activeKey] and "ACTIVE" or "DISABLED")
+    label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    label.BackgroundTransparency = 1
+    label.Font = Enum.Font.MontserratBold
+    label.TextSize = 9
+    label.TextXAlignment = Enum.TextXAlignment.Left
+
+    local toggle = Instance.new("TextButton", frame)
+    toggle.Size = UDim2.new(0, 70, 0, 26)
+    toggle.Position = UDim2.new(0, 12, 0.5, 2)
+    toggle.Text = "TOGGLE"
+    toggle.BackgroundColor3 = Config[activeKey] and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(25, 25, 25)
+    toggle.TextColor3 = Config[activeKey] and Color3.fromRGB(10, 10, 10) or Color3.fromRGB(255, 255, 255)
+    toggle.Font = Enum.Font.MontserratBold
+    toggle.TextSize = 9
+    Instance.new("UICorner", toggle).CornerRadius = UDim.new(0, 4)
+
+    local input = Instance.new("TextBox", frame)
+    input.Size = UDim2.new(0, 70, 0, 26)
+    input.Position = UDim2.new(0.38, 0, 0.5, 2)
+    input.Text = tostring(Config[valueKey])
+    input.BackgroundColor3 = Color3.fromRGB(8, 8, 8)
+    input.TextColor3 = Color3.fromRGB(255, 255, 255)
+    input.Font = Enum.Font.MontserratBold
+    input.TextSize = 9
+    Instance.new("UICorner", input).CornerRadius = UDim.new(0, 4)
+
+    local minus = Instance.new("TextButton", frame)
+    minus.Size = UDim2.new(0, 26, 0, 26)
+    minus.Position = UDim2.new(0.74, 0, 0.5, 2)
+    minus.Text = "—"
+    minus.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    minus.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Instance.new("UICorner", minus).CornerRadius = UDim.new(0, 4)
+
+    local plus = Instance.new("TextButton", frame)
+    plus.Size = UDim2.new(0, 26, 0, 26)
+    plus.Position = UDim2.new(0.87, 0, 0.5, 2)
+    plus.Text = "+"
+    plus.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    plus.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Instance.new("UICorner", plus).CornerRadius = UDim.new(0, 4)
+
+    toggle.MouseButton1Click:Connect(function()
+        Config[activeKey] = not Config[activeKey]
+        label.Text = "  " .. string.upper(text) .. "    »   " .. (Config[activeKey] and "ACTIVE" or "DISABLED")
+        local activeColorBg = Config[activeKey] and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(25, 25, 25)
+        local activeColorText = Config[activeKey] and Color3.fromRGB(10, 10, 10) or Color3.fromRGB(255, 255, 255)
+        TweenService:Create(toggle, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = activeColorBg, BackgroundTransparency = Config[activeKey] and 0.15 or 0.3, TextColor3 = activeColorText}):Play()
+    end)
+
+    input.FocusLost:Connect(function()
+        local val = tonumber(input.Text)
+        if val then Config[valueKey] = val else input.Text = tostring(Config[valueKey]) end
+    end)
+    plus.MouseButton1Click:Connect(function() Config[valueKey] = Config[valueKey] + 5 input.Text = tostring(Config[valueKey]) end)
+    minus.MouseButton1Click:Connect(function() Config[valueKey] = math.max(1, Config[valueKey] - 5) input.Text = tostring(Config[valueKey]) end)
+end
+
+local function CreateActionCard(container, text, callback)
+    local btn = Instance.new("TextButton", container)
+    btn.Size = UDim2.new(0.98, 0, 0, 34)
+    btn.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+    btn.BackgroundTransparency = 0.45
+    btn.Text = "    " .. string.upper(text)
+    btn.TextColor3 = Color3.fromRGB(180, 180, 180)
+    btn.Font = Enum.Font.MontserratBold
+    btn.TextSize = 9
+    btn.TextXAlignment = Enum.TextXAlignment.Left
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+    btn.MouseButton1Click:Connect(function() callback(btn) end)
+end
+
+-- [[ MEMBUAT TAB SYSTEM DENGAN 4 TAB ]] --
+local TabMain = CreateTab("Main SC")
+local TabSecurity = CreateTab("Core Security") -- TAB BARU KHUSUS ANTI BAN & ANTI REPORT
+local TabBoost = CreateTab("Boost Menu")
+local TabInfo = CreateTab("Info")
+
+-- ========================================== --
+--  TAB 1: MAIN SC                            --
+-- ========================================== --
+
+-- Sub-Section: Combat & Visuals (ESP)
+CreateSectionHeader(TabMain, "COMBAT & VISUALS")
+CreateAdjuster(TabMain, "SHOW FOV CIRCLE & SIZE", "ShowFov", "FovRadius")
+CreateToggle(TabMain, "LOCK AIM ASSIST (HOLD RMB)", "AimActive")
+CreateActionCard(TabMain, "AIM TARGET » [ HEAD ]", function(btn)
+    if Config.AimTarget == "Head" then
+        Config.AimTarget = "HumanoidRootPart"
+        btn.Text = "    AIM TARGET » [ TORSO ]"
+    else
+        Config.AimTarget = "Head"
+        btn.Text = "    AIM TARGET » [ HEAD ]"
+    end
+end)
+CreateAdjuster(TabMain, "BIG HITBOX EXPANDER", "HitboxActive", "HitboxSize")
+CreateToggle(TabMain, "2D BOX ESP", "BoxEspActive")
+CreateToggle(TabMain, "TRACERS ESP LINE", "TracerActive")
+CreateToggle(TabMain, "WHITE ESP CHAMS (BODY)", "ChamsEspActive")
+
+-- Sub-Section: Movement System
+CreateSectionHeader(TabMain, "MOVEMENT SYSTEM")
+CreateAdjuster(TabMain, "SPEED HACK", "SpeedActive", "SpeedValue")
+CreateAdjuster(TabMain, "HIGH JUMP", "JumpActive", "JumpValue")
+CreateAdjuster(TabMain, "NEURAL FLY", "FlyActive", "FlyValue")
+
+local isInvisible = false
+CreateActionCard(TabMain, "TOGGLE INVISIBLE (LOCAL) : OFF", function(btn)
+    local char = LocalPlayer.Character
+    if char then
+        isInvisible = not isInvisible
+        for _, part in pairs(char:GetDescendants()) do
+            if part:IsA("BasePart") or part:IsA("Decal") then
+                if part.Name ~= "HumanoidRootPart" then part.Transparency = isInvisible and 1 or 0 end
+            end
+        end
+        btn.Text = "    TOGGLE INVISIBLE (LOCAL) : " .. (isInvisible and "ON" or "OFF")
+    end
+end)
+
+-- Sub-Section: Teleport Panel
+CreateSectionHeader(TabMain, "TELEPORT PANEL")
+local TpFrame = Instance.new("Frame", TabMain)
+TpFrame.Size = UDim2.new(0.98, 0, 0, 110)
+TpFrame.BackgroundTransparency = 0.6
+TpFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+Instance.new("UICorner", TpFrame).CornerRadius = UDim.new(0, 6)
+
+local TpInput = Instance.new("TextBox", TpFrame)
+TpInput.Size = UDim2.new(0.94, 0, 0, 32)
+TpInput.Position = UDim2.new(0.03, 0, 0.1, 0)
+TpInput.PlaceholderText = "    Search Player Name..."
+TpInput.Text = ""
+TpInput.BackgroundColor3 = Color3.fromRGB(5, 5, 5)
+TpInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+TpInput.Font = Enum.Font.MontserratBold
+TpInput.TextSize = 10
+Instance.new("UICorner", TpInput).CornerRadius = UDim.new(0, 5)
+
+local TpBtn = Instance.new("TextButton", TpFrame)
+TpBtn.Size = UDim2.new(0.45, 0, 0, 32)
+TpBtn.Position = UDim2.new(0.03, 0, 0.55, 0)
+TpBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+TpBtn.Text = "TELEPORT"
+TpBtn.TextColor3 = Color3.fromRGB(10, 10, 10)
+TpBtn.Font = Enum.Font.MontserratBold
+TpBtn.TextSize = 9
+Instance.new("UICorner", TpBtn).CornerRadius = UDim.new(0, 4)
+
+local BringBtn = Instance.new("TextButton", TpFrame)
+BringBtn.Size = UDim2.new(0.45, 0, 0, 32)
+BringBtn.Position = UDim2.new(0.52, 0, 0.55, 0)
+BringBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+BringBtn.Text = "BRING TO ME"
+BringBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+BringBtn.Font = Enum.Font.MontserratBold
+BringBtn.TextSize = 9
+Instance.new("UICorner", BringBtn).CornerRadius = UDim.new(0, 4)
+
+
+-- ========================================== --
+--  TAB 2: CORE SECURITY (PINDAH KE SINI)     --
+-- ========================================== --
+CreateSectionHeader(TabSecurity, "BYPASS & PROTECTION")
+CreateToggle(TabSecurity, "ANTI BAN BYPASS (SECURE)", "AntiBanActive")
+CreateToggle(TabSecurity, "ANTI REPORT SYSTEM", "AntiReportActive")
+CreateToggle(TabSecurity, "NO CLIP (WALLPASS)", "NoClipActive")
+
+
+-- ========================================== --
+--  TAB 3: BOOST MENU                         --
+-- ========================================== --
+local savedMaterials = {}
+CreateToggle(TabBoost, "POTATO PC MODE (ORIGINAL COLORS)", "PotatoModeActive", function(state)
+    if state then
+        pcall(function()
+            Lighting.GlobalShadows = false
+            Lighting.FogEnd = 999999
+            for _, obj in pairs(workspace:GetDescendants()) do
+                if obj:IsA("BasePart") and not obj:IsA("Terrain") then
+                    savedMaterials[obj] = {Material = obj.Material, Color = obj.Color}
+                    obj.Material = Enum.Material.SmoothPlastic
+                elseif obj:IsA("Texture") or obj:IsA("Decal") then
+                    obj.Transparency = 1
+                elseif obj:IsA("PostEffect") or obj:IsA("Atmosphere") or obj:IsA("Sky") then
+                    obj.Parent = Lighting
+                end
+            end
+        end)
+    else
+        pcall(function()
+            Lighting.GlobalShadows = true
+            for obj, data in pairs(savedMaterials) do
+                if obj and obj.Parent then
+                    obj.Material = data.Material
+                    obj.Color = data.Color
+                end
+            end
+            for _, obj in pairs(workspace:GetDescendants()) do
+                if obj:IsA("Texture") or obj:IsA("Decal") then obj.Transparency = 0 end
+            end
+            savedMaterials = {}
+        end)
+    end
+end)
+
+CreateToggle(TabBoost, "UNLOCK FPS CAP (EXPERIMENTAL)", "FpsUnlockActive")
+CreateActionCard(TabBoost, "CLEAR MEMORY & CACHE JUNK", function(btn)
+    pcall(function()
+        settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.Disabled
+        setfpscap(360)
+    end)
+    btn.Text = "    ✦ CACHE CLEARED SUCCESSFULLY! ✦"
+    task.wait(1.5)
+    btn.Text = "    CLEAR MEMORY & CACHE JUNK"
+end)
+
+
+-- ========================================== --
+--  TAB 4: INFO                               --
+-- ========================================== --
+local InfoFrame = Instance.new("Frame", TabInfo)
+InfoFrame.Size = UDim2.new(0.98, 0, 0, 110)
+InfoFrame.BackgroundTransparency = 0.6
+InfoFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+Instance.new("UICorner", InfoFrame).CornerRadius = UDim.new(0, 6)
+
+local InfoLabel = Instance.new("TextLabel", InfoFrame)
+InfoLabel.Size = UDim2.new(0.94, 0, 0, 60)
+InfoLabel.Position = UDim2.new(0.03, 0, 0.05, 0)
+InfoLabel.BackgroundTransparency = 1
+InfoLabel.Text = "This script is made by : ?\n\nbtw join our discord link below"
+InfoLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+InfoLabel.Font = Enum.Font.MontserratBold
+InfoLabel.TextSize = 9
+InfoLabel.TextWrapped = true
+
+local DiscordBtn = Instance.new("TextButton", InfoFrame)
+DiscordBtn.Size = UDim2.new(0.94, 0, 0, 30)
+DiscordBtn.Position = UDim2.new(0.03, 0, 0.65, 0)
+DiscordBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+DiscordBtn.Text = "🔗 COPY DISCORD LINK"
+DiscordBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+DiscordBtn.Font = Enum.Font.MontserratBold
+DiscordBtn.TextSize = 9
+Instance.new("UICorner", DiscordBtn).CornerRadius = UDim.new(0, 4)
+
+DiscordBtn.MouseButton1Click:Connect(function()
+    if setclipboard then setclipboard(DISCORD_LINK) DiscordBtn.Text = "✅ LINK COPIED!" task.wait(2) DiscordBtn.Text = "🔗 COPY DISCORD LINK" end
+end)
+
+
+-- [[ LOGIC PERHITUNGAN ]] --
+local function GetPlayerFromInput()
+    local text = string.lower(TpInput.Text)
+    text = string.gsub(text, "^%s*(.-)%s*$", "%1")
+    if text ~= "" then
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer and (string.sub(string.lower(p.Name), 1, string.len(text)) == text or string.sub(string.lower(p.DisplayName), 1, string.len(text)) == text) then return p end
+        end
+    end
+    return nil
+end
+
+local function GetClosestPlayerToCenter()
+    local target = nil
+    local dist = Config.FovRadius
+    local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChildOfClass("Humanoid") and p.Character:FindFirstChildOfClass("Humanoid").Health > 0 then
+            local targetPart = p.Character:FindFirstChild(Config.AimTarget)
+            if targetPart then
+                local pos, vis = Camera:WorldToViewportPoint(targetPart.Position)
+                if vis then
+                    local m = (Vector2.new(pos.X, pos.Y) - center).Magnitude
+                    if m < dist then dist = m target = targetPart end
+                end
+            end
+        end
+    end
+    return target
+end
+
+TpBtn.MouseButton1Click:Connect(function()
+    local tpP = GetPlayerFromInput()
+    if tpP and tpP.Character and tpP.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        LocalPlayer.Character.HumanoidRootPart.CFrame = tpP.Character.HumanoidRootPart.CFrame + Vector3.new(0, 3, 0)
+    end
+end)
+
+BringBtn.MouseButton1Click:Connect(function()
+    local tpP = GetPlayerFromInput()
+    if tpP and tpP.Character and tpP.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        tpP.Character.HumanoidRootPart.CFrame = LocalPlayer.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, -4)
+    end
+end)
+
+-- [[ GAMEPLAY LOOP ]] --
+RunService.Heartbeat:Connect(function()
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+
+    -- 1. No Clip (Wallpass)
+    if Config.NoClipActive and char then
+        for _, part in pairs(char:GetDescendants()) do if part:IsA("BasePart") then part.CanCollide = false end end
+    end
+
+    FovCircle.Visible = Config.ShowFov
+    if Config.ShowFov then
+        FovCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+        FovCircle.Radius = Config.FovRadius
+    end
+
+    -- Hitbox Expander
+    local closestTarget = GetClosestPlayerToCenter()
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Head") then
+            pcall(function()
+                local head = p.Character.Head
+                if Config.HitboxActive and closestTarget and (closestTarget.Name == "Head" and head == closestTarget or closestTarget.Name == "HumanoidRootPart" and head.Parent == closestTarget.Parent) then
+                    head.Size = Vector3.new(Config.HitboxSize, Config.HitboxSize, Config.HitboxSize)
+                    head.Transparency = 0.5
+                    head.CanCollide = false
+                else
+                    head.Size = Vector3.new(2, 1, 1)
+                    head.Transparency = 0
+                    head.CanCollide = true
+                end
+            end)
+        end
+    end
+
+    -- ESP Rendering
+    for _, p in pairs(Players:GetPlayers()) do
+        local objects = EspCache[p]
+        if objects then
+            local box = objects.Box
+            local tracer = objects.Tracer
+            if p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChildOfClass("Humanoid") and p.Character:FindFirstChildOfClass("Humanoid").Health > 0 then
+                local pHrp = p.Character.HumanoidRootPart
+                local pos, onScreen = Camera:WorldToViewportPoint(pHrp.Position)
+                if onScreen then
+                    if Config.BoxEspActive then
+                        local head = p.Character:FindFirstChild("Head")
+                        local headPos = head and Camera:WorldToViewportPoint(head.Position) or pos
+                        local boxHeight = math.abs(headPos.Y - pos.Y) * 3 local boxWidth = boxHeight / 1.5
+                        box.Size = Vector2.new(boxWidth, boxHeight)
+                        box.Position = Vector2.new(pos.X - boxWidth / 2, pos.Y - boxHeight / 2)
+                        box.Visible = true
+                    else box.Visible = false end
+                    if Config.TracerActive then
+                        tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
+                        tracer.To = Vector2.new(pos.X, pos.Y)
+                        tracer.Visible = true
+                    else tracer.Visible = false end
+                else box.Visible = false tracer.Visible = false end
+            else box.Visible = false tracer.Visible = false end
+        end
+    end
+
+    -- Chams ESP
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character then
+            local hl = p.Character:FindFirstChild("VoidESP")
+            if Config.ChamsEspActive then
+                if not hl then
+                    hl = Instance.new("Highlight", p.Character) hl.Name = "VoidESP"
+                    hl.FillColor = Color3.fromRGB(255, 255, 255) hl.OutlineColor = Color3.fromRGB(0, 0, 0)
+                end
+            elseif hl then hl:Destroy() end
+        end
+    end
+
+    -- Movement Physics
+    if hrp and hum then
+        if Config.SpeedActive and hum.MoveDirection.Magnitude > 0 then
+            hrp.CFrame = hrp.CFrame + (hum.MoveDirection * (Config.SpeedValue / 100))
+        end
+        if Config.JumpActive and UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+            hrp.Velocity = Vector3.new(hrp.Velocity.X, Config.JumpValue, hrp.Velocity.Z)
+        end
+        
+        local att = hrp:FindFirstChild("VoidFlyAtt")
+        local lv = hrp:FindFirstChild("VoidFly")
+        if Config.FlyActive then
+            if not att then att = Instance.new("Attachment", hrp) att.Name = "VoidFlyAtt" end
+            if not lv then lv = Instance.new("LinearVelocity", hrp) lv.Name = "VoidFly" lv.Attachment0 = att lv.MaxForce = math.huge end
+            local dir = Vector3.zero
+            if UserInputService:IsKeyDown(Enum.KeyCode.W) then dir = dir + Camera.CFrame.LookVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.S) then dir = dir - Camera.CFrame.LookVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.A) then dir = dir - Camera.CFrame.RightVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.D) then dir = dir + Camera.CFrame.RightVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.Space) then dir = dir + Vector3.new(0, 1, 0) end
+            if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then dir = dir - Vector3.new(0, 1, 0) end
+            lv.VectorVelocity = dir * Config.FlyValue
+        else if lv then lv:Destroy() end if att then att:Destroy() end end
+    end
+
+    -- Aimbot Lock
+    if Config.AimActive and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
+        local target = GetClosestPlayerToCenter()
+        if target then Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.Position) end
+    end
+end)
