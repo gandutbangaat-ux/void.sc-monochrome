@@ -48,12 +48,11 @@ local Config = {
     -- Stalker & NEW SPIN BOT CONFIG
     StalkActive = false,
     SpinBotActive = false,
-    SpinSpeed = 50 -- Kecepatan putaran tornado
+    SpinSpeed = 50 
 }
 
 local StalkTargetPlayer = nil
 
--- Simpan settingan lighting awal game untuk restore
 local OriginalLighting = {
     Ambient = Lighting.Ambient,
     OutdoorAmbient = Lighting.OutdoorAmbient,
@@ -159,7 +158,6 @@ local function MakeDraggable(frame)
     end)
 end
 
--- Helper Fungsi cari player berdasarkan nama singkat
 local function GetPlayerFromName(text)
     text = string.lower(text)
     text = string.gsub(text, "^%s*(.-)%s*$", "%1")
@@ -488,6 +486,69 @@ local function CreateToggleCategory(container, text, activeKey, order, callback)
     return toggle, label
 end
 
+-- NEW FUNCTION: Membuat Dual Toggle Berdampingan khusus untuk Aimlock + Wall Assist (Kanan)
+local function CreateDualToggleCategory(container, text1, text2, key1, key2, order)
+    local frame = Instance.new("Frame", container)
+    frame.Size = UDim2.new(0.98, 0, 0, 68)
+    frame.LayoutOrder = order or 0
+    frame.BackgroundColor3 = Color3.fromRGB(14, 14, 18)
+    frame.BackgroundTransparency = 0.35
+    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
+    
+    local fStroke = Instance.new("UIStroke", frame)
+    fStroke.Color = Color3.fromRGB(255, 255, 255)
+    fStroke.Thickness = 1
+    fStroke.Transparency = 0.8
+
+    local label = Instance.new("TextLabel", frame)
+    label.Size = UDim2.new(1, -20, 0, 26)
+    label.Position = UDim2.new(0, 12, 0, 5)
+    label.Text = string.upper(text1) .. " & " .. string.upper(text2)
+    label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    label.BackgroundTransparency = 1
+    label.Font = Enum.Font.MontserratBold
+    label.TextSize = 9
+    label.TextXAlignment = Enum.TextXAlignment.Left
+
+    -- Tombol Kiri (Aim Active)
+    local toggle1 = Instance.new("TextButton", frame)
+    toggle1.Size = UDim2.new(0.43, 0, 0, 26)
+    toggle1.Position = UDim2.new(0, 12, 0.5, 3)
+    toggle1.Text = Config[key1] and "AIM: ON" or "AIM: OFF"
+    toggle1.BackgroundColor3 = Config[key1] and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(28, 28, 35)
+    toggle1.TextColor3 = Config[key1] and Color3.fromRGB(10, 10, 10) or Color3.fromRGB(255, 255, 255)
+    toggle1.Font = Enum.Font.MontserratBold
+    toggle1.TextSize = 9
+    Instance.new("UICorner", toggle1).CornerRadius = UDim.new(0, 5)
+
+    -- Tombol Kanan (Wall Assist Active)
+    local toggle2 = Instance.new("TextButton", frame)
+    toggle2.Size = UDim2.new(0.43, 0, 0, 26)
+    toggle2.Position = UDim2.new(0.52, 0, 0.5, 3)
+    toggle2.Text = Config[key2] and "WALL: IGNORE" or "WALL: CHECK"
+    toggle2.BackgroundColor3 = Config[key2] and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(28, 28, 35)
+    toggle2.TextColor3 = Config[key2] and Color3.fromRGB(10, 10, 10) or Color3.fromRGB(255, 255, 255)
+    toggle2.Font = Enum.Font.MontserratBold
+    toggle2.TextSize = 9
+    Instance.new("UICorner", toggle2).CornerRadius = UDim.new(0, 5)
+
+    toggle1.MouseButton1Click:Connect(function()
+        Config[key1] = not Config[key1]
+        toggle1.Text = Config[key1] and "AIM: ON" or "AIM: OFF"
+        local clrBg = Config[key1] and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(28, 28, 35)
+        local clrTxt = Config[key1] and Color3.fromRGB(10, 10, 10) or Color3.fromRGB(255, 255, 255)
+        TweenService:Create(toggle1, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = clrBg, TextColor3 = clrTxt}):Play()
+    end)
+
+    toggle2.MouseButton1Click:Connect(function()
+        Config[key2] = not Config[key2]
+        toggle2.Text = Config[key2] and "WALL: IGNORE" or "WALL: CHECK"
+        local clrBg = Config[key2] and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(28, 28, 35)
+        local clrTxt = Config[key2] and Color3.fromRGB(10, 10, 10) or Color3.fromRGB(255, 255, 255)
+        TweenService:Create(toggle2, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = clrBg, TextColor3 = clrTxt}):Play()
+    end)
+end
+
 local function CreateActionCategory(container, text, order, callback)
     local frame = Instance.new("Frame", container)
     frame.Size = UDim2.new(0.98, 0, 0, 68)
@@ -586,7 +647,7 @@ local function CreateTargetCategory(container, text, order)
     end)
 end
 
--- [[ REGISTER SEMUA TAB ]] --
+-- [[ REGISTER TAB ]] --
 local TabMain = CreateTab("Main SC")
 local TabSecurity = CreateTab("Core Security")
 local TabBoost = CreateTab("Boost Menu")
@@ -599,8 +660,10 @@ local TabInfo = CreateTab("Info")
 local layoutIndex = 1
 CreateSubHeader(TabMain, "Combat Assist System", layoutIndex) layoutIndex = layoutIndex + 1
 CreateAdjuster(TabMain, "SHOW FOV CIRCLE & SIZE", "ShowFov", "FovRadius", layoutIndex) layoutIndex = layoutIndex + 1
-CreateToggleCategory(TabMain, "LOCK AIM ASSIST (HOLD RMB)", "AimActive", layoutIndex) layoutIndex = layoutIndex + 1
-CreateToggleCategory(TabMain, "LOCK AIM WALL ASSIST (IGNORE WALL)", "AimWallActive", layoutIndex) layoutIndex = layoutIndex + 1
+
+-- Diperbarui: Tombol Wall Aim Assist dipindah ke sebelah Kanan Tombol Aim Assist utamanya!
+CreateDualToggleCategory(TabMain, "LOCK AIM ASSIST (RMB)", "WALL AIM ASSIST", "AimActive", "AimWallActive", layoutIndex) layoutIndex = layoutIndex + 1
+
 CreateTargetCategory(TabMain, "SELECT AIM TARGET POOL", layoutIndex) layoutIndex = layoutIndex + 1
 
 CreateSubHeader(TabMain, "Visual ESP & Hitbox Panel", layoutIndex) layoutIndex = layoutIndex + 1
@@ -702,7 +765,7 @@ CreateActionCategory(TabBoost, "CLEAR MEMORY & CACHE JUNK", 4, function()
 end)
 
 -- ========================================== --
---  TAB 4: MORE SC (NEW TORNADO TROLL EDITION) --
+--  TAB 4: MORE SC                             --
 -- ========================================== --
 local layoutMoreIndex = 1
 CreateSubHeader(TabMore, "Visual & Lighting Frame", layoutMoreIndex) layoutMoreIndex = layoutMoreIndex + 1
@@ -727,8 +790,6 @@ end) layoutMoreIndex = layoutMoreIndex + 1
 CreateSubHeader(TabMore, "Camera & Troll Utilities", layoutMoreIndex) layoutMoreIndex = layoutMoreIndex + 1
 CreateAdjuster(TabMore, "FORCE THIRD PERSON DIST", "ThirdPersonActive", "ThirdPersonDist", layoutMoreIndex) layoutMoreIndex = layoutMoreIndex + 1
 CreateToggleCategory(TabMore, "ANTI-AFK DISCONNECT BYPASS", "AntiAfkActive", layoutMoreIndex) layoutMoreIndex = layoutMoreIndex + 1
-
--- FITUR BARU: SPIN BOT / TORNADO TROLL ADJUSTER
 CreateAdjuster(TabMore, "SPIN BOT SPEED CONTROL", "SpinBotActive", "SpinSpeed", layoutMoreIndex) layoutMoreIndex = layoutMoreIndex + 1
 
 CreateSubHeader(TabMore, "Shadow Stalker Custom System", layoutMoreIndex) layoutMoreIndex = layoutMoreIndex + 1
@@ -740,93 +801,126 @@ StalkerInputFrame.BackgroundTransparency = 0.35
 StalkerInputFrame.BackgroundColor3 = Color3.fromRGB(14, 14, 18)
 Instance.new("UICorner", StalkerInputFrame).CornerRadius = UDim.new(0, 8)
 
-local StkFrameStroke = Instance.new("UIStroke", StalkerInputFrame)
-StkFrameStroke.Color = Color3.fromRGB(255, 255, 255)
-StkFrameStroke.Thickness = 1
-StkFrameStroke.Transparency = 0.8
+local StalkerFrameStroke = Instance.new("UIStroke", StalkerInputFrame)
+StalkerFrameStroke.Color = Color3.fromRGB(255, 255, 255)
+StalkerFrameStroke.Thickness = 1
+StalkerFrameStroke.Transparency = 0.8
 
-local StkInput = Instance.new("TextBox", StalkerInputFrame)
-StkInput.Size = UDim2.new(0.55, 0, 0, 30)
-StkInput.Position = UDim2.new(0, 12, 0.5, -15)
-StkInput.PlaceholderText = "  Type Target Name to Stalk..."
-StkInput.Text = ""
-StkInput.BackgroundColor3 = Color3.fromRGB(5, 5, 8)
-StkInput.TextColor3 = Color3.fromRGB(255, 255, 255)
-StkInput.Font = Enum.Font.MontserratBold
-StkInput.TextSize = 10
-Instance.new("UICorner", StkInput).CornerRadius = UDim.new(0, 5)
+local StalkInput = Instance.new("TextBox", StalkerInputFrame)
+StalkInput.Size = UDim2.new(0.55, 0, 0, 30)
+StalkInput.Position = UDim2.new(0, 12, 0.5, -15)
+StalkInput.PlaceholderText = "  Target Username..."
+StalkInput.Text = ""
+StalkInput.BackgroundColor3 = Color3.fromRGB(5, 5, 8)
+StalkInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+StalkInput.Font = Enum.Font.MontserratBold
+StalkInput.TextSize = 10
+Instance.new("UICorner", StalkInput).CornerRadius = UDim.new(0, 5)
 
-local StkBtn = Instance.new("TextButton", StalkerInputFrame)
-StkBtn.Size = UDim2.new(0.33, 0, 0, 30)
-StkBtn.Position = UDim2.new(0.62, 0, 0.5, -15)
-StkBtn.BackgroundColor3 = Color3.fromRGB(28, 28, 35)
-StkBtn.Text = "LOCK TARGET"
-StkBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-StkBtn.Font = Enum.Font.MontserratBold
-StkBtn.TextSize = 9
-Instance.new("UICorner", StkBtn).CornerRadius = UDim.new(0, 5)
+local StalkBtn = Instance.new("TextButton", StalkerInputFrame)
+StalkBtn.Size = UDim2.new(0.33, 0, 0, 30)
+StalkBtn.Position = UDim2.new(0.62, 0, 0.5, -15)
+StalkBtn.BackgroundColor3 = Color3.fromRGB(28, 28, 35)
+StalkBtn.Text = "STALK: OFF"
+StalkBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+StalkBtn.Font = Enum.Font.MontserratBold
+StalkBtn.TextSize = 9
+Instance.new("UICorner", StalkBtn).CornerRadius = UDim.new(0, 5)
 
--- ========================================== --
---  TAB 5: INFO                               --
--- ========================================== --
-local InfoFrame = Instance.new("Frame", TabInfo)
-InfoFrame.Size = UDim2.new(0.98, 0, 0, 115)
-InfoFrame.BackgroundTransparency = 0.5
-InfoFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
-Instance.new("UICorner", InfoFrame).CornerRadius = UDim.new(0, 8)
-local InfoFrameStroke = Instance.new("UIStroke", InfoFrame)
-InfoFrameStroke.Color = Color3.fromRGB(255, 255, 255)
-InfoFrameStroke.Thickness = 1 InfoFrameStroke.Transparency = 0.75
-
-local InfoLabel = Instance.new("TextLabel", InfoFrame)
-InfoLabel.Size = UDim2.new(0.94, 0, 0, 60)
-InfoLabel.Position = UDim2.new(0.03, 0, 0.05, 0)
-InfoLabel.BackgroundTransparency = 1
-InfoLabel.Text = "This script is made by : \n\nbtw join our discord link below"
-InfoLabel.TextColor3 = Color3.fromRGB(210, 210, 210)
-InfoLabel.Font = Enum.Font.MontserratBold InfoLabel.TextSize = 9 InfoLabel.TextWrapped = true
-
-local DiscordBtn = Instance.new("TextButton", InfoFrame)
-DiscordBtn.Size = UDim2.new(0.94, 0, 0, 32)
-DiscordBtn.Position = UDim2.new(0.03, 0, 0.65, 0)
-DiscordBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
-DiscordBtn.Text = "COPY DISCORD LINK"
-DiscordBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-DiscordBtn.Font = Enum.Font.MontserratBold DiscordBtn.TextSize = 9
-Instance.new("UICorner", DiscordBtn).CornerRadius = UDim.new(0, 5)
-
-DiscordBtn.MouseButton1Click:Connect(function()
-    if setclipboard then setclipboard(DISCORD_LINK) DiscordBtn.Text = "LINK COPIED!" task.wait(2) DiscordBtn.Text = "COPY DISCORD LINK" end
+StalkBtn.MouseButton1Click:Connect(function()
+    Config.StalkActive = not Config.StalkActive
+    if Config.StalkActive then
+        local target = GetPlayerFromName(StalkInput.Text)
+        if target then
+            StalkTargetPlayer = target
+            StalkBtn.Text = "STALK: ON"
+            StalkBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+            StalkBtn.TextColor3 = Color3.fromRGB(10, 10, 10)
+        else
+            Config.StalkActive = false
+            StalkBtn.Text = "NOT FOUND"
+            task.wait(1)
+            StalkBtn.Text = "STALK: OFF"
+        end
+    else
+        StalkTargetPlayer = nil
+        StalkBtn.Text = "STALK: OFF"
+        StalkBtn.BackgroundColor3 = Color3.fromRGB(28, 28, 35)
+        StalkBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    end
 end)
 
--- [[ ENGINE LOGIC ]] --
-local function IsVisibleWithRaycast(targetPart)
-    if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then return false end
-    local startPos = Camera.CFrame.Position
-    local targetPos = targetPart.Position
-    local direction = targetPos - startPos
-    local raycastParams = RaycastParams.new()
-    raycastParams.FilterType = Enum.RaycastFilterType.Exclude
-    raycastParams.FilterDescendantsInstances = {LocalPlayer.Character, targetPart.Parent}
-    raycastParams.IgnoreWater = true
-    local result = workspace:Raycast(startPos, direction, raycastParams)
-    return result == nil
-end
+-- ========================================== --
+--  TAB 5: INFO PANEL                         --
+-- ========================================== --
+CreateSubHeader(TabInfo, "Credits & Information", 1)
+local InfoFrame = Instance.new("Frame", TabInfo)
+InfoFrame.Size = UDim2.new(0.98, 0, 0, 100)
+InfoFrame.LayoutOrder = 2
+InfoFrame.BackgroundTransparency = 0.35
+InfoFrame.BackgroundColor3 = Color3.fromRGB(14, 14, 18)
+Instance.new("UICorner", InfoFrame).CornerRadius = UDim.new(0, 8)
 
-local function GetClosestPlayerToCenter()
+local InfoLabel = Instance.new("TextLabel", InfoFrame)
+InfoLabel.Size = UDim2.new(1, -20, 1, -20)
+InfoLabel.Position = UDim2.new(0, 10, 0, 10)
+InfoLabel.Text = "VOID UI V2 - PREMIUM MONOCHROME\n\nPress 'RightControl' to Toggle Menu visibility.\nJoin Discord for updates: " .. DISCORD_LINK
+InfoLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+InfoLabel.Font = Enum.Font.MontserratMedium
+InfoLabel.TextSize = 10
+InfoLabel.TextWrapped = true
+
+-- ========================================== --
+-- [[ FUNCTIONALITIES CORE LOOP ENGINE ]]     --
+-- ========================================== --
+
+UserInputService.InputBegan:Connect(function(input, processed)
+    if not processed and input.KeyCode == Enum.KeyCode.RightControl then
+        MainFrame.Visible = not MainFrame.Visible
+    end
+end)
+
+MinBtn.MouseButton1Click:Connect(function()
+    MainFrame.Visible = false
+    MaxBtn.Visible = true
+end)
+
+MaxBtn.MouseButton1Click:Connect(function()
+    MainFrame.Visible = true
+    MaxBtn.Visible = false
+end)
+
+TpBtn.MouseButton1Click:Connect(function()
+    local target = GetPlayerFromName(TpInput.Text)
+    if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        LocalPlayer.Character.HumanoidRootPart.CFrame = target.Character.HumanoidRootPart.CFrame * CFrame.new(0, 2, 0)
+    end
+end)
+
+-- [[ LOGIKA AWAL DIAUTOMATISASI DAN DISATUKAN DI SINI ]] --
+local function GetClosestPlayerToMouse()
     local target = nil
-    local dist = Config.FovRadius
-    local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    local maxDist = Config.FovRadius
+    local mousePos = UserInputService:GetMouseLocation()
+
     for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChildOfClass("Humanoid") and p.Character:FindFirstChildOfClass("Humanoid").Health > 0 then
-            local targetPart = p.Character:FindFirstChild(Config.AimTarget)
-            if targetPart then
-                local pos, vis = Camera:WorldToViewportPoint(targetPart.Position)
-                if vis then
-                    local m = (Vector2.new(pos.X, pos.Y) - center).Magnitude
-                    if m < dist then 
-                        if Config.AimWallActive or (Config.AimActive and IsVisibleWithRaycast(targetPart)) then dist = m target = targetPart end
-                    end
+        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild(Config.AimTarget) and p.Character:FindFirstChildOfClass("Humanoid") and p.Character:FindFirstChildOfClass("Humanoid").Health > 0 then
+            local part = p.Character[Config.AimTarget]
+            local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
+            
+            if onScreen then
+                -- Gabungan Logika Wall Aim Assist:
+                -- Jika AimWallActive == FALSE (WALL: CHECK), maka script akan nge-scan halangan objek/tembok.
+                -- Jika AimWallActive == TRUE (WALL: IGNORE), bagian scan tembok di bawah ini dilewati (tembus pandang).
+                if not Config.AimWallActive then
+                    local rayParts = Camera:GetPartsObscuringTarget({Camera.CFrame.Position, part.Position}, {LocalPlayer.Character, p.Character})
+                    if #rayParts > 0 then continue end
+                end
+                
+                local dist = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
+                if dist < maxDist then
+                    maxDist = dist
+                    target = p
                 end
             end
         end
@@ -834,218 +928,157 @@ local function GetClosestPlayerToCenter()
     return target
 end
 
--- [[ TELEPORT PANEL LOGIC ]] --
-TpBtn.MouseButton1Click:Connect(function()
-    local p = GetPlayerFromName(TpInput.Text)
-    if p and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        LocalPlayer.Character.HumanoidRootPart.CFrame = p.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, -3)
-        TpBtn.Text = "SUCCESS!"
+local VirtualUser = game:GetService("VirtualUser")
+LocalPlayer.Idled:Connect(function()
+    if Config.AntiAfkActive then
+        VirtualUser:Button2Down(Vector2.new(0,0), Camera.CFrame)
         task.wait(1)
-        TpBtn.Text = "TELEPORT"
-    else
-        TpBtn.Text = "NOT FOUND"
-        task.wait(1)
-        TpBtn.Text = "TELEPORT"
+        VirtualUser:Button2Up(Vector2.new(0,0), Camera.CFrame)
     end
 end)
 
--- [[ LOGIC SHADOW STALKER LANGSUNG LOCK ]] --
-StkBtn.MouseButton1Click:Connect(function()
-    if Config.StalkActive then
-        Config.StalkActive = false
-        StalkTargetPlayer = nil
-        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
-            Camera.CameraSubject = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-        end
-        StkBtn.Text = "LOCK TARGET"
-        StkBtn.BackgroundColor3 = Color3.fromRGB(28, 28, 35)
-    else
-        local p = GetPlayerFromName(StkInput.Text)
-        if p and p.Character and p.Character:FindFirstChildOfClass("Humanoid") then
-            StalkTargetPlayer = p
-            Config.StalkActive = true
-            Camera.CameraSubject = p.Character:FindFirstChildOfClass("Humanoid")
-            StkBtn.Text = "STALKING: " .. string.upper(p.Name)
-            StkBtn.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
-        else
-            StkBtn.Text = "PLAYER NOT FOUND"
-            task.wait(1.5)
-            StkBtn.Text = "LOCK TARGET"
+RunService.RenderStepped:Connect(function()
+    local mouseLocation = UserInputService:GetMouseLocation()
+    
+    if FovCircle then
+        FovCircle.Position = mouseLocation
+        FovCircle.Radius = Config.FovRadius
+        FovCircle.Visible = Config.ShowFov
+    end
+
+    -- Sistem Utama Aimlock RMB (Logikanya otomatis membaca toggle Wall di atas)
+    if Config.AimActive and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
+        local target = GetClosestPlayerToMouse()
+        if target and target.Character and target.Character:FindFirstChild(Config.AimTarget) then
+            Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.Character[Config.AimTarget].Position)
         end
     end
-end)
 
--- [[ SHADOW STALKER VIA CTRL + CLICK ]] --
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if not gameProcessed and input.UserInputType == Enum.UserInputType.MouseButton1 and UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
-        local mousePos = UserInputService:GetMouseLocation()
-        local ray = Camera:ViewportPointToRay(mousePos.X, mousePos.Y)
-        local raycastResult = workspace:Raycast(ray.Origin, ray.Direction * 1000)
-        
-        if raycastResult and raycastResult.Instance then
-            local model = raycastResult.Instance:FindFirstAncestorOfClass("Model")
-            if model then
-                local targetPlayer = Players:GetPlayerFromCharacter(model)
-                if targetPlayer and targetPlayer ~= LocalPlayer then
-                    Config.StalkActive = not Config.StalkActive
-                    if Config.StalkActive then
-                        StalkTargetPlayer = targetPlayer
-                        if targetPlayer.Character and targetPlayer.Character:FindFirstChildOfClass("Humanoid") then
-                            Camera.CameraSubject = targetPlayer.Character:FindFirstChildOfClass("Humanoid")
-                        end
-                        StkBtn.Text = "STALKING: " .. string.upper(targetPlayer.Name)
-                        StkBtn.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
-                    else
-                        StalkTargetPlayer = nil
-                        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
-                            Camera.CameraSubject = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-                        end
-                        StkBtn.Text = "LOCK TARGET"
-                        StkBtn.BackgroundColor3 = Color3.fromRGB(28, 28, 35)
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and EspCache[p] then
+            local box = EspCache[p].Box
+            local tracer = EspCache[p].Tracer
+            local hasObjects = (p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChildOfClass("Humanoid") and p.Character:FindFirstChildOfClass("Humanoid").Health > 0)
+            
+            if hasObjects then
+                local hrp = p.Character.HumanoidRootPart
+                local screenPos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+                
+                if Config.HitboxActive then
+                    hrp.Size = Vector3.new(Config.HitboxSize, Config.HitboxSize, Config.HitboxSize)
+                    hrp.Transparency = 0.7
+                    hrp.CanCollide = false
+                else
+                    hrp.Size = Vector3.new(2, 2, 1)
+                    hrp.Transparency = 1
+                    hrp.CanCollide = true
+                end
+
+                local highlight = p.Character:FindFirstChild("VoidChams")
+                if Config.ChamsEspActive then
+                    if not highlight then
+                        highlight = Instance.new("Highlight")
+                        highlight.Name = "VoidChams"
+                        highlight.FillColor = Color3.fromRGB(255, 255, 255)
+                        highlight.OutlineColor = Color3.fromRGB(0, 0, 0)
+                        highlight.FillTransparency = 0.4
+                        highlight.OutlineTransparency = 0.2
+                        highlight.Parent = p.Character
                     end
+                elseif highlight then
+                    highlight:Destroy()
+                end
+
+                if onScreen then
+                    local top, topOn = Camera:WorldToViewportPoint((hrp.CFrame * CFrame.new(0, 3, 0)).Position)
+                    local bottom, bottomOn = Camera:WorldToViewportPoint((hrp.CFrame * CFrame.new(0, -3.5, 0)).Position)
+                    local height = math.abs(top.Y - bottom.Y)
+                    local width = height * 0.6
+                    
+                    if Config.BoxEspActive then
+                        box.Size = Vector2.new(width, height)
+                        box.Position = Vector2.new(screenPos.X - width / 2, screenPos.Y - height / 2)
+                        box.Visible = true
+                    else
+                        box.Visible = false
+                    end
+
+                    if Config.TracerActive then
+                        tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
+                        tracer.To = Vector2.new(screenPos.X, screenPos.Y)
+                        tracer.Visible = true
+                    else
+                        tracer.Visible = false
+                    end
+                else
+                    box.Visible = false
+                    tracer.Visible = false
+                end
+            else
+                box.Visible = false
+                tracer.Visible = false
+                if p.Character and p.Character:FindFirstChild("VoidChams") then
+                    p.Character.VoidChams:Destroy()
                 end
             end
         end
     end
-end)
 
--- Anti AFK
-pcall(function()
-    local virtualUser = game:GetService("VirtualUser")
-    LocalPlayer.Idled:Connect(function()
-        if Config.AntiAfkActive then
-            virtualUser:Button2Down(Vector2.new(0,0), Camera.CFrame) task.wait(1)
-            virtualUser:Button2Up(Vector2.new(0,0), Camera.CFrame)
-        end
-    end)
-end)
+    local myChar = LocalPlayer.Character
+    local myHrd = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
 
--- [[ RENDERING LOOP ]] --
-RunService.RenderStepped:Connect(function()
-    if FovCircle then
-        pcall(function()
-            FovCircle.Visible = Config.ShowFov
-            if Config.ShowFov then
-                FovCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-                FovCircle.Radius = Config.FovRadius
+    if myChar and myHrd and myHum then
+        if Config.SpeedActive then myHum.WalkSpeed = Config.SpeedValue end
+        if Config.JumpActive then myHum.JumpPower = Config.JumpValue end
+
+        if Config.FlyActive then
+            local flyVelocity = myHrd:FindFirstChild("VoidFlyVelocity") or Instance.new("LinearVelocity")
+            local attachment = myHrd:FindFirstChild("VoidFlyAttachment") or Instance.new("Attachment")
+            
+            if flyVelocity.Name ~= "VoidFlyVelocity" then
+                attachment.Name = "VoidFlyAttachment"
+                attachment.Parent = myHrd
+                flyVelocity.Name = "VoidFlyVelocity"
+                flyVelocity.MaxForce = math.huge
+                flyVelocity.Attachment0 = attachment
+                flyVelocity.Parent = myHrd
             end
-        end)
-    end
 
-    pcall(function()
+            local direction = Vector3.zero
+            if UserInputService:IsKeyDown(Enum.KeyCode.W) then direction = direction + Camera.CFrame.LookVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.S) then direction = direction - Camera.CFrame.LookVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.A) then direction = direction - Camera.CFrame.RightVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.D) then direction = direction + Camera.CFrame.RightVector end
+            
+            flyVelocity.VectorVelocity = direction.Unit * Config.FlyValue
+            if direction == Vector3.zero then flyVelocity.VectorVelocity = Vector3.zero end
+        else
+            if myHrd:FindFirstChild("VoidFlyVelocity") then myHrd.VoidFlyVelocity:Destroy() end
+            if myHrd:FindFirstChild("VoidFlyAttachment") then myHrd.VoidFlyAttachment:Destroy() end
+        end
+
+        if Config.NoClipActive then
+            for _, limb in pairs(myChar:GetChildren()) do
+                if limb:IsA("BasePart") then limb.CanCollide = false end
+            end
+        end
+
+        if Config.SpinBotActive then
+            myHrd.CFrame = myHrd.CFrame * CFrame.Angles(0, math.rad(Config.SpinSpeed), 0)
+        end
+
+        if Config.StalkActive and StalkTargetPlayer and StalkTargetPlayer.Character and StalkTargetPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            local stalkHrp = StalkTargetPlayer.Character.HumanoidRootPart
+            myHrd.CFrame = stalkHrp.CFrame * CFrame.new(0, 0, 3.5)
+        end
+        
         if Config.ThirdPersonActive then
             LocalPlayer.CameraMaxZoomDistance = Config.ThirdPersonDist
             LocalPlayer.CameraMinZoomDistance = Config.ThirdPersonDist
         else
-            LocalPlayer.CameraMaxZoomDistance = 400 LocalPlayer.CameraMinZoomDistance = 0.5
-        end
-    end)
-
-    for _, p in pairs(Players:GetPlayers()) do
-        local objects = EspCache[p]
-        if objects then
-            pcall(function()
-                local box = objects.Box local tracer = objects.Tracer
-                if p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChildOfClass("Humanoid") and p.Character:FindFirstChildOfClass("Humanoid").Health > 0 then
-                    local pHrp = p.Character.HumanoidRootPart
-                    local pos, onScreen = Camera:WorldToViewportPoint(pHrp.Position)
-                    if onScreen then
-                        if Config.BoxEspActive and box then
-                            local head = p.Character:FindFirstChild("Head")
-                            local headPos = head and Camera:WorldToViewportPoint(head.Position) or pos
-                            local boxHeight = math.abs(headPos.Y - pos.Y) * 3 local boxWidth = boxHeight / 1.5
-                            box.Size = Vector2.new(boxWidth, boxHeight) box.Position = Vector2.new(pos.X - boxWidth / 2, pos.Y - boxHeight / 2) box.Visible = true
-                        else if box then box.Visible = false end end
-                        if Config.TracerActive and tracer then
-                            tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y) tracer.To = Vector2.new(pos.X, pos.Y) tracer.Visible = true
-                        else if tracer then tracer.Visible = false end end
-                    else if box then box.Visible = false end if tracer then tracer.Visible = false end end
-                else if box then box.Visible = false end if tracer then tracer.Visible = false end end
-            end)
+            LocalPlayer.CameraMaxZoomDistance = 400
+            LocalPlayer.CameraMinZoomDistance = 0.5
         end
     end
-end)
-
--- [[ GAMEPLAY LOOP ]] --
-RunService.Heartbeat:Connect(function()
-    local char = LocalPlayer.Character
-    local hrp = char and char:FindFirstChild("HumanoidRootPart")
-    local hum = char and char:FindFirstChildOfClass("Humanoid")
-
-    if Config.StalkActive and StalkTargetPlayer and StalkTargetPlayer.Character and StalkTargetPlayer.Character:FindFirstChild("HumanoidRootPart") and hrp then
-        pcall(function()
-            local targetHrp = StalkTargetPlayer.Character.HumanoidRootPart
-            hrp.CFrame = targetHrp.CFrame * CFrame.new(0, 0, 3.5)
-        end)
-    end
-
-    if Config.NoClipActive and char then
-        for _, part in pairs(char:GetDescendants()) do if part:IsA("BasePart") then part.CanCollide = false end end
-    end
-
-    -- [[ REAL-TIME SPIN BOT TORNADO ENGINE ]] --
-    if Config.SpinBotActive and hrp then
-        pcall(function()
-            -- Memutar paksa CFrame sumbu Y RootPart berdasarkan Config.SpinSpeed tanpa merusak movement WASD
-            hrp.CFrame = hrp.CFrame * CFrame.Angles(0, math.rad(Config.SpinSpeed), 0)
-        end)
-    end
-
-    local closestTarget = GetClosestPlayerToCenter()
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Head") then
-            pcall(function()
-                local head = p.Character.Head
-                if Config.HitboxActive and closestTarget and (closestTarget.Name == "Head" and head == closestTarget or closestTarget.Name == "HumanoidRootPart" and head.Parent == closestTarget.Parent) then
-                    head.Size = Vector3.new(Config.HitboxSize, Config.HitboxSize, Config.HitboxSize) head.Transparency = 0.5 head.CanCollide = false
-                else
-                    head.Size = Vector3.new(2, 1, 1) head.Transparency = 0 head.CanCollide = true
-                end
-            end)
-        end
-    end
-
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer and p.Character then
-            pcall(function()
-                local hl = p.Character:FindFirstChild("VoidESP")
-                if Config.ChamsEspActive then
-                    if not hl then hl = Instance.new("Highlight", p.Character) hl.Name = "VoidESP" hl.FillColor = Color3.fromRGB(255, 255, 255) hl.OutlineColor = Color3.fromRGB(0, 0, 0) end
-                elseif hl then hl:Destroy() end
-            end)
-        end
-    end
-
-    if hrp and hum then
-        if Config.SpeedActive and hum.MoveDirection.Magnitude > 0 then hrp.CFrame = hrp.CFrame + (hum.MoveDirection * (Config.SpeedValue / 100)) end
-        if Config.JumpActive and UserInputService:IsKeyDown(Enum.KeyCode.Space) then hrp.Velocity = Vector3.new(hrp.Velocity.X, Config.JumpValue, hrp.Velocity.Z) end
-        
-        local att = hrp:FindFirstChild("VoidFlyAtt") local lv = hrp:FindFirstChild("VoidFly")
-        if Config.FlyActive then
-            if not att then att = Instance.new("Attachment", hrp) att.Name = "VoidFlyAtt" end
-            if not lv then lv = Instance.new("LinearVelocity", hrp) lv.Name = "VoidFly" lv.Attachment0 = att lv.MaxForce = math.huge end
-            local dir = Vector3.zero
-            if UserInputService:IsKeyDown(Enum.KeyCode.W) then dir = dir + Camera.CFrame.LookVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.S) then dir = dir - Camera.CFrame.LookVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.A) then dir = dir - Camera.CFrame.RightVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.D) then dir = dir + Camera.CFrame.RightVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.Space) then dir = dir + Vector3.new(0, 1, 0) end
-            lv.VectorVelocity = dir * Config.FlyValue
-        else if lv then lv:Destroy() end if att then att:Destroy() end end
-    end
-
-    if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
-        local target = GetClosestPlayerToCenter()
-        if target then Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.Position) end
-    end
-end)
-
-MinBtn.MouseButton1Click:Connect(function()
-    TweenService:Create(MainFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(0, 0, 0, 0), BackgroundTransparency = 1, ImageTransparency = 1}):Play()
-    task.wait(0.25) MainFrame.Visible = false MaxBtn.Visible = true
-end)
-
-MaxBtn.MouseButton1Click:Connect(function()
-    MaxBtn.Visible = false MainFrame.Visible = true
-    TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.new(0, 580, 0, 440), BackgroundTransparency = 0.05, ImageTransparency = 0.75}):Play()
 end)
