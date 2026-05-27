@@ -15,6 +15,7 @@ local DISCORD_LINK = "https://discord.gg/q3yHMq9D"
 local Config = {
     ShowFov = false,
     AimActive = false,
+    AimWallActive = false, 
     AimTarget = "Head",
     HitboxActive = false,
     BoxEspActive = false,
@@ -31,17 +32,39 @@ local Config = {
     
     -- Features Config
     NoClipActive = false,
-    AntiReportActive = true, -- Default aktif untuk keamanan
-    AntiBanActive = true,    -- Default aktif untuk keamanan
+    InvisibleActive = false,
+    AntiReportActive = true,
+    AntiBanActive = true,
     FpsUnlockActive = false,
-    PotatoModeActive = false
+    PotatoModeActive = false,
+    
+    -- More SC Config
+    FullBrightActive = false,
+    ThirdPersonActive = false,
+    ThirdPersonDist = 20,
+    AntiAfkActive = false,
+    NoFogActive = false,
+    
+    -- Stalker & NEW SPIN BOT CONFIG
+    StalkActive = false,
+    SpinBotActive = false,
+    SpinSpeed = 50 -- Kecepatan putaran tornado
+}
+
+local StalkTargetPlayer = nil
+
+-- Simpan settingan lighting awal game untuk restore
+local OriginalLighting = {
+    Ambient = Lighting.Ambient,
+    OutdoorAmbient = Lighting.OutdoorAmbient,
+    Brightness = Lighting.Brightness,
+    ClockTime = Lighting.ClockTime,
+    FogEnd = Lighting.FogEnd
 }
 
 -- ========================================== --
 --  [[ BACKGROUND SECURITY CORE ]]            --
 -- ========================================== --
-
--- Intercept Log untuk Anti Report
 LogService.MessageOut:Connect(function(message)
     if Config.AntiReportActive then
         local lowerMessage = string.lower(message)
@@ -51,7 +74,6 @@ LogService.MessageOut:Connect(function(message)
     end
 end)
 
--- Loop Pengaman Nama Script untuk Anti Ban
 task.spawn(function()
     while task.wait(0.5) do
         if Config.AntiBanActive and script then
@@ -65,40 +87,42 @@ task.spawn(function()
 end)
 
 -- ========================================== --
+-- [[ DRAWING SYSTEM ]] --
+local FovCircle
+pcall(function()
+    FovCircle = Drawing.new("Circle")
+    FovCircle.Color = Color3.fromRGB(255, 255, 255)
+    FovCircle.Thickness = 1.5
+    FovCircle.NumSides = 100
+    FovCircle.Radius = Config.FovRadius
+    FovCircle.Filled = false
+    FovCircle.Visible = false
+end)
 
--- [[ DRAWING FOV CIRCLE ]] --
-local FovCircle = Drawing.new("Circle")
-FovCircle.Color = Color3.fromRGB(255, 255, 255)
-FovCircle.Thickness = 1.5
-FovCircle.NumSides = 100
-FovCircle.Radius = Config.FovRadius
-FovCircle.Filled = false
-FovCircle.Visible = false
-
--- [[ CACHE UNTUK DRAWING ESP ]] --
 local EspCache = {}
-
 local function CreateEspObjects(player)
     if EspCache[player] then return end
-    local box = Drawing.new("Square")
-    box.Color = Color3.fromRGB(255, 255, 255)
-    box.Thickness = 1.5
-    box.Filled = false
-    box.Visible = false
+    pcall(function()
+        local box = Drawing.new("Square")
+        box.Color = Color3.fromRGB(255, 255, 255)
+        box.Thickness = 1.5
+        box.Filled = false
+        box.Visible = false
 
-    local tracer = Drawing.new("Line")
-    tracer.Color = Color3.fromRGB(150, 150, 150)
-    tracer.Thickness = 1.2
-    tracer.Visible = false
+        local tracer = Drawing.new("Line")
+        tracer.Color = Color3.fromRGB(255, 255, 255)
+        tracer.Thickness = 1.2
+        tracer.Visible = false
 
-    EspCache[player] = {Box = box, Tracer = tracer}
+        EspCache[player] = {Box = box, Tracer = tracer}
+    end)
 end
 
 local function RemoveEspObjects(player)
     if EspCache[player] then
         pcall(function()
-            EspCache[player].Box:Destroy()
-            EspCache[player].Tracer:Destroy()
+            if EspCache[player].Box then EspCache[player].Box:Destroy() end
+            if EspCache[player].Tracer then EspCache[player].Tracer:Destroy() end
         end)
         EspCache[player] = nil
     end
@@ -110,7 +134,7 @@ end
 Players.PlayerAdded:Connect(function(p) if p ~= LocalPlayer then CreateEspObjects(p) end end)
 Players.PlayerRemoving:Connect(RemoveEspObjects)
 
--- [[ DRAG SYSTEM ]] --
+-- Drag System
 local function MakeDraggable(frame)
     local dragging, dragInput, dragStart, startPos
     frame.InputBegan:Connect(function(input)
@@ -135,9 +159,21 @@ local function MakeDraggable(frame)
     end)
 end
 
--- [[ MAIN UI ELEMENTS ]] --
+-- Helper Fungsi cari player berdasarkan nama singkat
+local function GetPlayerFromName(text)
+    text = string.lower(text)
+    text = string.gsub(text, "^%s*(.-)%s*$", "%1")
+    if text ~= "" then
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer and (string.sub(string.lower(p.Name), 1, string.len(text)) == text or string.sub(string.lower(p.DisplayName), 1, string.len(text)) == text) then return p end
+        end
+    end
+    return nil
+end
+
+-- [[ MAIN UI ]] --
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "VoidV2_NarutoMono"
+ScreenGui.Name = "VoidV2_PremiumMono"
 ScreenGui.ResetOnSpawn = false
 if gethui then ScreenGui.Parent = gethui() else ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
 
@@ -145,209 +181,206 @@ local MainFrame = Instance.new("ImageLabel")
 MainFrame.Name = "MainFrame"
 MainFrame.Size = UDim2.new(0, 580, 0, 440)
 MainFrame.Position = UDim2.new(0.5, -290, 0.5, -220)
-MainFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
-MainFrame.BackgroundTransparency = 0.15
+MainFrame.BackgroundColor3 = Color3.fromRGB(12, 12, 14)
+MainFrame.BackgroundTransparency = 0.05
 MainFrame.Image = BACKGROUND_IMAGE
-MainFrame.ImageTransparency = 0.65
+MainFrame.ImageTransparency = 0.75
 MainFrame.ScaleType = Enum.ScaleType.Crop
 MainFrame.BorderSizePixel = 0
 MainFrame.Parent = ScreenGui
 MakeDraggable(MainFrame)
 
-Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 14)
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 16)
 local UIStroke = Instance.new("UIStroke", MainFrame)
 UIStroke.Color = Color3.fromRGB(255, 255, 255)
-UIStroke.Thickness = 1.5
-UIStroke.Transparency = 0.45
+UIStroke.Thickness = 1.8
+UIStroke.Transparency = 0.35
 
--- Minimize & Maximize Buttons
 local MinBtn = Instance.new("TextButton")
 MinBtn.Size = UDim2.new(0, 30, 0, 30)
 MinBtn.Position = UDim2.new(1, -45, 0, 15)
 MinBtn.BackgroundTransparency = 1
 MinBtn.Text = "—"
-MinBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+MinBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
 MinBtn.Font = Enum.Font.MontserratBold
 MinBtn.TextSize = 14
 MinBtn.Parent = MainFrame
 
 local MaxBtn = Instance.new("TextButton")
-MaxBtn.Size = UDim2.new(0, 80, 0, 45)
+MaxBtn.Size = UDim2.new(0, 100, 0, 40)
 MaxBtn.Position = UDim2.new(0, 25, 0, 25)
-MaxBtn.BackgroundColor3 = Color3.fromRGB(12, 12, 12)
-MaxBtn.BackgroundTransparency = 0.2
-MaxBtn.Text = "✨VOID✨"
+MaxBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
+MaxBtn.BackgroundTransparency = 0.1
+MaxBtn.Text = "V.D"
 MaxBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 MaxBtn.Font = Enum.Font.MontserratBold
-MaxBtn.TextSize = 10
+MaxBtn.TextSize = 11
 MaxBtn.Visible = false
 MaxBtn.Parent = ScreenGui
 
-Instance.new("UICorner", MaxBtn).CornerRadius = UDim.new(0, 8)
+Instance.new("UICorner", MaxBtn).CornerRadius = UDim.new(0, 10)
 local MaxStroke = Instance.new("UIStroke", MaxBtn)
 MaxStroke.Color = Color3.fromRGB(255, 255, 255)
 MaxStroke.Thickness = 1.5
 MaxStroke.Transparency = 0.3
 
-MinBtn.MouseButton1Click:Connect(function()
-    TweenService:Create(MainFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(0, 0, 0, 0), BackgroundTransparency = 1, ImageTransparency = 1}):Play()
-    task.wait(0.25)
-    MainFrame.Visible = false
-    MaxBtn.Visible = true
-end)
-
-MaxBtn.MouseButton1Click:Connect(function()
-    MaxBtn.Visible = false
-    MainFrame.Visible = true
-    TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.new(0, 580, 0, 440), BackgroundTransparency = 0.15, ImageTransparency = 0.65}):Play()
-end)
-
 local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, 0, 0, 40)
+Title.Size = UDim2.new(1, 0, 0, 45)
 Title.Position = UDim2.new(0, 0, 0, 5)
 Title.BackgroundTransparency = 1
-Title.Text = "✦  V O I D   V 2   //   M O N O C H R O M E  ✦"
+Title.Text = "V.O.I.D // S.C"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.Font = Enum.Font.MontserratBold
-Title.TextSize = 13
+Title.TextSize = 11
 Title.Parent = MainFrame
 
--- [[ SISTEM LAYOUT TAB BAR ]] --
 local TabBar = Instance.new("Frame", MainFrame)
-TabBar.Size = UDim2.new(0, 130, 1, -60)
-TabBar.Position = UDim2.new(0, 15, 0, 45)
-TabBar.BackgroundTransparency = 0.85
+TabBar.Size = UDim2.new(0, 135, 1, -65)
+TabBar.Position = UDim2.new(0, 16, 0, 50)
+TabBar.BackgroundTransparency = 0.9
 TabBar.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-Instance.new("UICorner", TabBar).CornerRadius = UDim.new(0, 8)
+Instance.new("UICorner", TabBar).CornerRadius = UDim.new(0, 10)
 
 local TabListLayout = Instance.new("UIListLayout", TabBar)
-TabListLayout.Padding = UDim.new(0, 5)
+TabListLayout.Padding = UDim.new(0, 6)
 TabListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
 local ContentContainer = Instance.new("Frame", MainFrame)
-ContentContainer.Size = UDim2.new(1, -170, 1, -60)
-ContentContainer.Position = UDim2.new(0, 155, 0, 45)
+ContentContainer.Size = UDim2.new(1, -180, 1, -65)
+ContentContainer.Position = UDim2.new(0, 165, 0, 50)
 ContentContainer.BackgroundTransparency = 1
 
 local Tabs = {}
 local ActiveTab = nil
 
+local function AnimateTabContent(scrollFrame)
+    scrollFrame.Visible = true
+    scrollFrame.Position = UDim2.new(0, 0, 0, 25)
+    for _, item in pairs(scrollFrame:GetChildren()) do
+        if item:IsA("Frame") or item:IsA("TextButton") then
+            item.BackgroundTransparency = 1
+            local stroke = item:FindFirstChildOfClass("UIStroke")
+            if stroke then stroke.Transparency = 1 end
+            local label = item:FindFirstChildOfClass("TextLabel") or item
+            if label:IsA("TextLabel") or label:IsA("TextButton") then label.TextTransparency = 1 end
+        end
+    end
+    TweenService:Create(scrollFrame, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = UDim2.new(0, 0, 0, 0)}):Play()
+    for _, item in pairs(scrollFrame:GetChildren()) do
+        if item:IsA("Frame") or item:IsA("TextButton") then
+            local baseTrans = (item.Name == "SubHeaderFrame") and 1 or 0.35
+            if item:IsA("TextButton") and item.Name ~= "Frame" then baseTrans = 0.4 end
+            TweenService:Create(item, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = baseTrans}):Play()
+            local stroke = item:FindFirstChildOfClass("UIStroke")
+            if stroke then 
+                local targetStr = (item.Name == "SubHeaderFrame") and 0.85 or 0.8
+                TweenService:Create(stroke, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Transparency = targetStr}):Play() 
+            end
+            for _, child in pairs(item:GetDescendants()) do
+                if child:IsA("TextLabel") or child:IsA("TextBox") or child:IsA("TextButton") then
+                    TweenService:Create(child, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0}):Play()
+                end
+            end
+        end
+    end
+end
+
 local function CreateTab(tabName)
     local tabBtn = Instance.new("TextButton", TabBar)
-    tabBtn.Size = UDim2.new(0.9, 0, 0, 32)
-    tabBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-    tabBtn.BackgroundTransparency = 0.5
+    tabBtn.Size = UDim2.new(0.92, 0, 0, 34)
+    tabBtn.BackgroundColor3 = Color3.fromRGB(22, 22, 26)
+    tabBtn.BackgroundTransparency = 0.4
     tabBtn.Text = string.upper(tabName)
-    tabBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
+    tabBtn.TextColor3 = Color3.fromRGB(160, 160, 160)
     tabBtn.Font = Enum.Font.MontserratBold
     tabBtn.TextSize = 9
-    Instance.new("UICorner", tabBtn).CornerRadius = UDim.new(0, 6)
+    Instance.new("UICorner", tabBtn).CornerRadius = UDim.new(0, 8)
+    
+    local tabStroke = Instance.new("UIStroke", tabBtn)
+    tabStroke.Color = Color3.fromRGB(255, 255, 255)
+    tabStroke.Thickness = 1
+    tabStroke.Transparency = 0.85
     
     local scrollFrame = Instance.new("ScrollingFrame", ContentContainer)
     scrollFrame.Size = UDim2.new(1, 0, 1, 0)
     scrollFrame.BackgroundTransparency = 1
-    scrollFrame.CanvasSize = UDim2.new(0, 0, 4.5, 0)
-    scrollFrame.ScrollBarThickness = 2
+    scrollFrame.CanvasSize = UDim2.new(0, 0, 6.2, 0)
+    scrollFrame.ScrollBarThickness = 3
     scrollFrame.ScrollBarImageColor3 = Color3.fromRGB(255, 255, 255)
     scrollFrame.Visible = false
     
     local listLayout = Instance.new("UIListLayout", scrollFrame)
-    listLayout.Padding = UDim.new(0, 6)
+    listLayout.Padding = UDim.new(0, 8)
     listLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    listLayout.SortOrder = Enum.SortOrder.LayoutOrder
     
-    Tabs[tabName] = {Button = tabBtn, Frame = scrollFrame}
+    Tabs[tabName] = {Button = tabBtn, Frame = scrollFrame, Stroke = tabStroke}
     
     tabBtn.MouseButton1Click:Connect(function()
         for _, t in pairs(Tabs) do
             t.Frame.Visible = false
-            t.Button.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-            t.Button.TextColor3 = Color3.fromRGB(150, 150, 150)
+            t.Button.BackgroundColor3 = Color3.fromRGB(22, 22, 26)
+            t.Button.TextColor3 = Color3.fromRGB(160, 160, 160)
+            t.Stroke.Transparency = 0.85
         end
-        scrollFrame.Visible = true
         tabBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
         tabBtn.TextColor3 = Color3.fromRGB(10, 10, 10)
+        tabStroke.Transparency = 0.2
+        AnimateTabContent(scrollFrame)
     end)
     
     if not ActiveTab then
         scrollFrame.Visible = true
         tabBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
         tabBtn.TextColor3 = Color3.fromRGB(10, 10, 10)
+        tabStroke.Transparency = 0.2
         ActiveTab = tabName
+        task.defer(function() AnimateTabContent(scrollFrame) end)
     end
-    
     return scrollFrame
 end
 
--- [[ HOVER UTILITY ]] --
-local function ApplySmoothHover(element, stroke, baseColor, hoverColor, baseTrans, hoverTrans)
-    element.MouseEnter:Connect(function()
-        TweenService:Create(element, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = hoverColor, BackgroundTransparency = hoverTrans}):Play()
-    end)
-    element.MouseLeave:Connect(function()
-        TweenService:Create(element, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = baseColor, BackgroundTransparency = baseTrans}):Play()
-    end)
-end
-
--- [[ SEPARATOR HEADERS FOR COMBINED SECTIONS ]] --
-local function CreateSectionHeader(container, titleText)
-    local frame = Instance.new("Frame", container)
-    frame.Size = UDim2.new(0.98, 0, 0, 25)
-    frame.BackgroundTransparency = 1
+local function CreateSubHeader(container, titleText, order)
+    local headerFrame = Instance.new("Frame", container)
+    headerFrame.Name = "SubHeaderFrame"
+    headerFrame.Size = UDim2.new(0.98, 0, 0, 24)
+    headerFrame.LayoutOrder = order or 0
+    headerFrame.BackgroundTransparency = 1
     
-    local txt = Instance.new("TextLabel", frame)
-    txt.Size = UDim2.new(1, 0, 1, 0)
-    txt.BackgroundTransparency = 1
-    txt.Text = "—— [ " .. string.upper(titleText) .. " ] ——"
-    txt.TextColor3 = Color3.fromRGB(255, 255, 255)
-    txt.Font = Enum.Font.MontserratBold
-    txt.TextSize = 10
-    txt.TextTransparency = 0.3
-end
-
--- [[ BUILDERS FOR ITEMS ]] --
-local function CreateToggle(container, text, key, callback)
-    local btn = Instance.new("TextButton", container)
-    btn.Size = UDim2.new(0.98, 0, 0, 34)
-    btn.BackgroundColor3 = Config[key] and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(18, 18, 18)
-    btn.BackgroundTransparency = Config[key] and 0.15 or 0.45
-    btn.Text = "    " .. string.upper(text) .. (Config[key] and "    ✦   [ + ] ON" or "    ✦   [ - ] OFF")
-    btn.TextColor3 = Config[key] and Color3.fromRGB(10, 10, 10) or Color3.fromRGB(180, 180, 180)
-    btn.Font = Enum.Font.MontserratBold
-    btn.TextSize = 9
-    btn.TextXAlignment = Enum.TextXAlignment.Left
-    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
-
-    local btnStroke = Instance.new("UIStroke", btn)
-    btnStroke.Color = Config[key] and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(60, 60, 60)
-    btnStroke.Thickness = 1.2
+    local line = Instance.new("Frame", headerFrame)
+    line.Size = UDim2.new(1, 0, 0, 1)
+    line.Position = UDim2.new(0, 0, 0.5, 0)
+    line.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    line.BackgroundTransparency = 0.85
     
-    ApplySmoothHover(btn, btnStroke, Color3.fromRGB(18, 18, 18), Color3.fromRGB(30, 30, 30), 0.45, 0.3)
-
-    btn.MouseButton1Click:Connect(function()
-        Config[key] = not Config[key]
-        btn.Text = "    " .. string.upper(text) .. (Config[key] and "    ✦   [ + ] ON" or "    ✦   [ - ] OFF")
-        
-        local targetBg = Config[key] and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(18, 18, 18)
-        local targetText = Config[key] and Color3.fromRGB(10, 10, 10) or Color3.fromRGB(180, 180, 180)
-        
-        TweenService:Create(btn, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = targetBg, BackgroundTransparency = Config[key] and 0.15 or 0.45, TextColor3 = targetText}):Play()
-        btnStroke.Color = Config[key] and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(60, 60, 60)
-        
-        if callback then callback(Config[key]) end
-    end)
+    local textBg = Instance.new("TextLabel", headerFrame)
+    textBg.Size = UDim2.new(0, string.len(titleText) * 7 + 20, 1, 0)
+    textBg.Position = UDim2.new(0.05, 0, 0, 0)
+    textBg.BackgroundColor3 = Color3.fromRGB(12, 12, 14)
+    textBg.Text = string.upper(titleText)
+    textBg.TextColor3 = Color3.fromRGB(150, 150, 150)
+    textBg.Font = Enum.Font.MontserratBold
+    textBg.TextSize = 8
+    textBg.BorderSizePixel = 0
 end
 
-local function CreateAdjuster(container, text, activeKey, valueKey)
+local function CreateAdjuster(container, text, activeKey, valueKey, order)
     local frame = Instance.new("Frame", container)
-    frame.Size = UDim2.new(0.98, 0, 0, 65)
-    frame.BackgroundColor3 = Color3.fromRGB(12, 12, 12)
-    frame.BackgroundTransparency = 0.4
-    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 6)
+    frame.Size = UDim2.new(0.98, 0, 0, 68)
+    frame.LayoutOrder = order or 0
+    frame.BackgroundColor3 = Color3.fromRGB(14, 14, 18)
+    frame.BackgroundTransparency = 0.35
+    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
+    
+    local fStroke = Instance.new("UIStroke", frame)
+    fStroke.Color = Color3.fromRGB(255, 255, 255)
+    fStroke.Thickness = 1
+    fStroke.Transparency = 0.8
 
     local label = Instance.new("TextLabel", frame)
     label.Size = UDim2.new(1, -20, 0, 26)
-    label.Position = UDim2.new(0, 12, 0, 4)
-    label.Text = "  " .. string.upper(text) .. "    »   " .. (Config[activeKey] and "ACTIVE" or "DISABLED")
+    label.Position = UDim2.new(0, 12, 0, 5)
+    label.Text = string.upper(text) .. "   //   " .. (Config[activeKey] and "ACTIVE" or "DISABLED")
     label.TextColor3 = Color3.fromRGB(255, 255, 255)
     label.BackgroundTransparency = 1
     label.Font = Enum.Font.MontserratBold
@@ -355,47 +388,49 @@ local function CreateAdjuster(container, text, activeKey, valueKey)
     label.TextXAlignment = Enum.TextXAlignment.Left
 
     local toggle = Instance.new("TextButton", frame)
-    toggle.Size = UDim2.new(0, 70, 0, 26)
-    toggle.Position = UDim2.new(0, 12, 0.5, 2)
+    toggle.Size = UDim2.new(0, 75, 0, 26)
+    toggle.Position = UDim2.new(0, 12, 0.5, 3)
     toggle.Text = "TOGGLE"
-    toggle.BackgroundColor3 = Config[activeKey] and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(25, 25, 25)
+    toggle.BackgroundColor3 = Config[activeKey] and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(28, 28, 35)
     toggle.TextColor3 = Config[activeKey] and Color3.fromRGB(10, 10, 10) or Color3.fromRGB(255, 255, 255)
     toggle.Font = Enum.Font.MontserratBold
     toggle.TextSize = 9
-    Instance.new("UICorner", toggle).CornerRadius = UDim.new(0, 4)
+    Instance.new("UICorner", toggle).CornerRadius = UDim.new(0, 5)
 
     local input = Instance.new("TextBox", frame)
-    input.Size = UDim2.new(0, 70, 0, 26)
-    input.Position = UDim2.new(0.38, 0, 0.5, 2)
+    input.Size = UDim2.new(0, 75, 0, 26)
+    input.Position = UDim2.new(0.38, 0, 0.5, 3)
     input.Text = tostring(Config[valueKey])
-    input.BackgroundColor3 = Color3.fromRGB(8, 8, 8)
+    input.BackgroundColor3 = Color3.fromRGB(5, 5, 8)
     input.TextColor3 = Color3.fromRGB(255, 255, 255)
     input.Font = Enum.Font.MontserratBold
     input.TextSize = 9
-    Instance.new("UICorner", input).CornerRadius = UDim.new(0, 4)
+    Instance.new("UICorner", input).CornerRadius = UDim.new(0, 5)
 
     local minus = Instance.new("TextButton", frame)
     minus.Size = UDim2.new(0, 26, 0, 26)
-    minus.Position = UDim2.new(0.74, 0, 0.5, 2)
+    minus.Position = UDim2.new(0.74, 0, 0.5, 3)
     minus.Text = "—"
-    minus.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    minus.BackgroundColor3 = Color3.fromRGB(28, 28, 35)
     minus.TextColor3 = Color3.fromRGB(255, 255, 255)
-    Instance.new("UICorner", minus).CornerRadius = UDim.new(0, 4)
+    minus.Font = Enum.Font.MontserratBold
+    Instance.new("UICorner", minus).CornerRadius = UDim.new(0, 5)
 
     local plus = Instance.new("TextButton", frame)
     plus.Size = UDim2.new(0, 26, 0, 26)
-    plus.Position = UDim2.new(0.87, 0, 0.5, 2)
+    plus.Position = UDim2.new(0.87, 0, 0.5, 3)
     plus.Text = "+"
-    plus.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    plus.BackgroundColor3 = Color3.fromRGB(28, 28, 35)
     plus.TextColor3 = Color3.fromRGB(255, 255, 255)
-    Instance.new("UICorner", plus).CornerRadius = UDim.new(0, 4)
+    plus.Font = Enum.Font.MontserratBold
+    Instance.new("UICorner", plus).CornerRadius = UDim.new(0, 5)
 
     toggle.MouseButton1Click:Connect(function()
         Config[activeKey] = not Config[activeKey]
-        label.Text = "  " .. string.upper(text) .. "    »   " .. (Config[activeKey] and "ACTIVE" or "DISABLED")
-        local activeColorBg = Config[activeKey] and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(25, 25, 25)
+        label.Text = string.upper(text) .. "   //   " .. (Config[activeKey] and "ACTIVE" or "DISABLED")
+        local activeColorBg = Config[activeKey] and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(28, 28, 35)
         local activeColorText = Config[activeKey] and Color3.fromRGB(10, 10, 10) or Color3.fromRGB(255, 255, 255)
-        TweenService:Create(toggle, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = activeColorBg, BackgroundTransparency = Config[activeKey] and 0.15 or 0.3, TextColor3 = activeColorText}):Play()
+        TweenService:Create(toggle, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = activeColorBg, TextColor3 = activeColorText}):Play()
     end)
 
     input.FocusLost:Connect(function()
@@ -406,122 +441,240 @@ local function CreateAdjuster(container, text, activeKey, valueKey)
     minus.MouseButton1Click:Connect(function() Config[valueKey] = math.max(1, Config[valueKey] - 5) input.Text = tostring(Config[valueKey]) end)
 end
 
-local function CreateActionCard(container, text, callback)
-    local btn = Instance.new("TextButton", container)
-    btn.Size = UDim2.new(0.98, 0, 0, 34)
-    btn.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
-    btn.BackgroundTransparency = 0.45
-    btn.Text = "    " .. string.upper(text)
-    btn.TextColor3 = Color3.fromRGB(180, 180, 180)
-    btn.Font = Enum.Font.MontserratBold
-    btn.TextSize = 9
-    btn.TextXAlignment = Enum.TextXAlignment.Left
-    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
-    btn.MouseButton1Click:Connect(function() callback(btn) end)
+local function CreateToggleCategory(container, text, activeKey, order, callback)
+    local frame = Instance.new("Frame", container)
+    frame.Size = UDim2.new(0.98, 0, 0, 68)
+    frame.LayoutOrder = order or 0
+    frame.BackgroundColor3 = Color3.fromRGB(14, 14, 18)
+    frame.BackgroundTransparency = 0.35
+    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
+    
+    local fStroke = Instance.new("UIStroke", frame)
+    fStroke.Color = Color3.fromRGB(255, 255, 255)
+    fStroke.Thickness = 1
+    fStroke.Transparency = 0.8
+
+    local label = Instance.new("TextLabel", frame)
+    label.Size = UDim2.new(1, -20, 0, 26)
+    label.Position = UDim2.new(0, 12, 0, 5)
+    label.Text = string.upper(text) .. "   //   " .. (Config[activeKey] and "ACTIVE" or "DISABLED")
+    label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    label.BackgroundTransparency = 1
+    label.Font = Enum.Font.MontserratBold
+    label.TextSize = 9
+    label.TextXAlignment = Enum.TextXAlignment.Left
+
+    local toggle = Instance.new("TextButton", frame)
+    toggle.Size = UDim2.new(0, 120, 0, 26)
+    toggle.Position = UDim2.new(0, 12, 0.5, 3)
+    toggle.Text = Config[activeKey] and "[ ON ]" or "[ OFF ]"
+    toggle.BackgroundColor3 = Config[activeKey] and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(28, 28, 35)
+    toggle.TextColor3 = Config[activeKey] and Color3.fromRGB(10, 10, 10) or Color3.fromRGB(255, 255, 255)
+    toggle.Font = Enum.Font.MontserratBold
+    toggle.TextSize = 9
+    Instance.new("UICorner", toggle).CornerRadius = UDim.new(0, 5)
+
+    toggle.MouseButton1Click:Connect(function()
+        Config[activeKey] = not Config[activeKey]
+        label.Text = string.upper(text) .. "   //   " .. (Config[activeKey] and "ACTIVE" or "DISABLED")
+        toggle.Text = Config[activeKey] and "[ ON ]" or "[ OFF ]"
+        
+        local activeColorBg = Config[activeKey] and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(28, 28, 35)
+        local activeColorText = Config[activeKey] and Color3.fromRGB(10, 10, 10) or Color3.fromRGB(255, 255, 255)
+        TweenService:Create(toggle, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = activeColorBg, TextColor3 = activeColorText}):Play()
+        
+        if callback then callback(Config[activeKey]) end
+    end)
+    return toggle, label
 end
 
--- [[ MEMBUAT TAB SYSTEM DENGAN 4 TAB ]] --
+local function CreateActionCategory(container, text, order, callback)
+    local frame = Instance.new("Frame", container)
+    frame.Size = UDim2.new(0.98, 0, 0, 68)
+    frame.LayoutOrder = order or 0
+    frame.BackgroundColor3 = Color3.fromRGB(14, 14, 18)
+    frame.BackgroundTransparency = 0.35
+    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
+    
+    local fStroke = Instance.new("UIStroke", frame)
+    fStroke.Color = Color3.fromRGB(255, 255, 255)
+    fStroke.Thickness = 1
+    fStroke.Transparency = 0.8
+
+    local label = Instance.new("TextLabel", frame)
+    label.Size = UDim2.new(1, -20, 0, 26)
+    label.Position = UDim2.new(0, 12, 0, 5)
+    label.Text = string.upper(text) .. "   //   STATUS READY"
+    label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    label.BackgroundTransparency = 1
+    label.Font = Enum.Font.MontserratBold
+    label.TextSize = 9
+    label.TextXAlignment = Enum.TextXAlignment.Left
+
+    local toggle = Instance.new("TextButton", frame)
+    toggle.Size = UDim2.new(0, 120, 0, 26)
+    toggle.Position = UDim2.new(0, 12, 0.5, 3)
+    toggle.Text = "[ READY ]"
+    toggle.BackgroundColor3 = Color3.fromRGB(28, 28, 35)
+    toggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+    toggle.Font = Enum.Font.MontserratBold
+    toggle.TextSize = 9
+    Instance.new("UICorner", toggle).CornerRadius = UDim.new(0, 5)
+
+    local running = false
+    toggle.MouseButton1Click:Connect(function()
+        if running then return end
+        running = true
+        label.Text = string.upper(text) .. "   //   EXECUTING..."
+        toggle.Text = "[ WORKING ]"
+        TweenService:Create(toggle, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = Color3.fromRGB(40, 40, 45)}):Play()
+        if callback then callback() end
+        task.wait(0.5)
+        label.Text = string.upper(text) .. "   //   PROCESS FINISHED"
+        toggle.Text = "[ SUCCESS ]"
+        TweenService:Create(toggle, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = Color3.fromRGB(255, 255, 255), TextColor3 = Color3.fromRGB(10, 10, 10)}):Play()
+        task.wait(1.5)
+        label.Text = string.upper(text) .. "   //   STATUS READY"
+        toggle.Text = "[ READY ]"
+        TweenService:Create(toggle, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = Color3.fromRGB(28, 28, 35), TextColor3 = Color3.fromRGB(255, 255, 255)}):Play()
+        running = false
+    end)
+end
+
+local function CreateTargetCategory(container, text, order)
+    local frame = Instance.new("Frame", container)
+    frame.Size = UDim2.new(0.98, 0, 0, 68)
+    frame.LayoutOrder = order or 0
+    frame.BackgroundColor3 = Color3.fromRGB(14, 14, 18)
+    frame.BackgroundTransparency = 0.35
+    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
+    
+    local fStroke = Instance.new("UIStroke", frame)
+    fStroke.Color = Color3.fromRGB(255, 255, 255)
+    fStroke.Thickness = 1
+    fStroke.Transparency = 0.8
+
+    local label = Instance.new("TextLabel", frame)
+    label.Size = UDim2.new(1, -20, 0, 26)
+    label.Position = UDim2.new(0, 12, 0, 5)
+    label.Text = string.upper(text) .. "   //   " .. string.upper(Config.AimTarget == "Head" and "HEAD" or "TORSO")
+    label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    label.BackgroundTransparency = 1
+    label.Font = Enum.Font.MontserratBold
+    label.TextSize = 9
+    label.TextXAlignment = Enum.TextXAlignment.Left
+
+    local toggle = Instance.new("TextButton", frame)
+    toggle.Size = UDim2.new(0, 120, 0, 26)
+    toggle.Position = UDim2.new(0, 12, 0.5, 3)
+    toggle.Text = Config.AimTarget == "Head" and "[ HEAD ]" or "[ TORSO ]"
+    toggle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    toggle.TextColor3 = Color3.fromRGB(10, 10, 10)
+    toggle.Font = Enum.Font.MontserratBold
+    toggle.TextSize = 9
+    Instance.new("UICorner", toggle).CornerRadius = UDim.new(0, 5)
+
+    toggle.MouseButton1Click:Connect(function()
+        if Config.AimTarget == "Head" then
+            Config.AimTarget = "HumanoidRootPart"
+            toggle.Text = "[ TORSO ]"
+        else
+            Config.AimTarget = "Head"
+            toggle.Text = "[ HEAD ]"
+        end
+        label.Text = string.upper(text) .. "   //   " .. (Config.AimTarget == "Head" and "HEAD" or "TORSO")
+    end)
+end
+
+-- [[ REGISTER SEMUA TAB ]] --
 local TabMain = CreateTab("Main SC")
-local TabSecurity = CreateTab("Core Security") -- TAB BARU KHUSUS ANTI BAN & ANTI REPORT
+local TabSecurity = CreateTab("Core Security")
 local TabBoost = CreateTab("Boost Menu")
+local TabMore = CreateTab("More sc")
 local TabInfo = CreateTab("Info")
 
 -- ========================================== --
 --  TAB 1: MAIN SC                            --
 -- ========================================== --
+local layoutIndex = 1
+CreateSubHeader(TabMain, "Combat Assist System", layoutIndex) layoutIndex = layoutIndex + 1
+CreateAdjuster(TabMain, "SHOW FOV CIRCLE & SIZE", "ShowFov", "FovRadius", layoutIndex) layoutIndex = layoutIndex + 1
+CreateToggleCategory(TabMain, "LOCK AIM ASSIST (HOLD RMB)", "AimActive", layoutIndex) layoutIndex = layoutIndex + 1
+CreateToggleCategory(TabMain, "LOCK AIM WALL ASSIST (IGNORE WALL)", "AimWallActive", layoutIndex) layoutIndex = layoutIndex + 1
+CreateTargetCategory(TabMain, "SELECT AIM TARGET POOL", layoutIndex) layoutIndex = layoutIndex + 1
 
--- Sub-Section: Combat & Visuals (ESP)
-CreateSectionHeader(TabMain, "COMBAT & VISUALS")
-CreateAdjuster(TabMain, "SHOW FOV CIRCLE & SIZE", "ShowFov", "FovRadius")
-CreateToggle(TabMain, "LOCK AIM ASSIST (HOLD RMB)", "AimActive")
-CreateActionCard(TabMain, "AIM TARGET » [ HEAD ]", function(btn)
-    if Config.AimTarget == "Head" then
-        Config.AimTarget = "HumanoidRootPart"
-        btn.Text = "    AIM TARGET » [ TORSO ]"
-    else
-        Config.AimTarget = "Head"
-        btn.Text = "    AIM TARGET » [ HEAD ]"
-    end
-end)
-CreateAdjuster(TabMain, "BIG HITBOX EXPANDER", "HitboxActive", "HitboxSize")
-CreateToggle(TabMain, "2D BOX ESP", "BoxEspActive")
-CreateToggle(TabMain, "TRACERS ESP LINE", "TracerActive")
-CreateToggle(TabMain, "WHITE ESP CHAMS (BODY)", "ChamsEspActive")
+CreateSubHeader(TabMain, "Visual ESP & Hitbox Panel", layoutIndex) layoutIndex = layoutIndex + 1
+CreateAdjuster(TabMain, "BIG HITBOX EXPANDER", "HitboxActive", "HitboxSize", layoutIndex) layoutIndex = layoutIndex + 1
+CreateToggleCategory(TabMain, "2D BOX ESP", "BoxEspActive", layoutIndex) layoutIndex = layoutIndex + 1
+CreateToggleCategory(TabMain, "TRACERS ESP LINE", "TracerActive", layoutIndex) layoutIndex = layoutIndex + 1
+CreateToggleCategory(TabMain, "WHITE ESP CHAMS (BODY)", "ChamsEspActive", layoutIndex) layoutIndex = layoutIndex + 1
 
--- Sub-Section: Movement System
-CreateSectionHeader(TabMain, "MOVEMENT SYSTEM")
-CreateAdjuster(TabMain, "SPEED HACK", "SpeedActive", "SpeedValue")
-CreateAdjuster(TabMain, "HIGH JUMP", "JumpActive", "JumpValue")
-CreateAdjuster(TabMain, "NEURAL FLY", "FlyActive", "FlyValue")
+CreateSubHeader(TabMain, "Movement Systems", layoutIndex) layoutIndex = layoutIndex + 1
+CreateAdjuster(TabMain, "SPEED HACK", "SpeedActive", "SpeedValue", layoutIndex) layoutIndex = layoutIndex + 1
+CreateAdjuster(TabMain, "HIGH JUMP", "JumpActive", "JumpValue", layoutIndex) layoutIndex = layoutIndex + 1
+CreateAdjuster(TabMain, "NEURAL FLY", "FlyActive", "FlyValue", layoutIndex) layoutIndex = layoutIndex + 1
 
-local isInvisible = false
-CreateActionCard(TabMain, "TOGGLE INVISIBLE (LOCAL) : OFF", function(btn)
+CreateSubHeader(TabMain, "Player Utility Frame", layoutIndex) layoutIndex = layoutIndex + 1
+CreateToggleCategory(TabMain, "NO CLIP (WALLPASS)", "NoClipActive", layoutIndex) layoutIndex = layoutIndex + 1
+CreateToggleCategory(TabMain, "TOGGLE INVISIBLE (LOCAL)", "InvisibleActive", layoutIndex, function(state)
     local char = LocalPlayer.Character
     if char then
-        isInvisible = not isInvisible
         for _, part in pairs(char:GetDescendants()) do
             if part:IsA("BasePart") or part:IsA("Decal") then
-                if part.Name ~= "HumanoidRootPart" then part.Transparency = isInvisible and 1 or 0 end
+                if part.Name ~= "HumanoidRootPart" then part.Transparency = state and 1 or 0 end
             end
         end
-        btn.Text = "    TOGGLE INVISIBLE (LOCAL) : " .. (isInvisible and "ON" or "OFF")
     end
-end)
+end) layoutIndex = layoutIndex + 1
 
--- Sub-Section: Teleport Panel
-CreateSectionHeader(TabMain, "TELEPORT PANEL")
-local TpFrame = Instance.new("Frame", TabMain)
-TpFrame.Size = UDim2.new(0.98, 0, 0, 110)
-TpFrame.BackgroundTransparency = 0.6
-TpFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-Instance.new("UICorner", TpFrame).CornerRadius = UDim.new(0, 6)
+-- Instant Teleport Panel
+CreateSubHeader(TabMain, "Instant Teleport Panel", layoutIndex) layoutIndex = layoutIndex + 1
+local TeleportFrame = Instance.new("Frame", TabMain)
+TeleportFrame.Size = UDim2.new(0.98, 0, 0, 78)
+TeleportFrame.LayoutOrder = layoutIndex
+TeleportFrame.BackgroundTransparency = 0.35
+TeleportFrame.BackgroundColor3 = Color3.fromRGB(14, 14, 18)
+Instance.new("UICorner", TeleportFrame).CornerRadius = UDim.new(0, 8)
 
-local TpInput = Instance.new("TextBox", TpFrame)
-TpInput.Size = UDim2.new(0.94, 0, 0, 32)
-TpInput.Position = UDim2.new(0.03, 0, 0.1, 0)
-TpInput.PlaceholderText = "    Search Player Name..."
+local TpFrameStroke = Instance.new("UIStroke", TeleportFrame)
+TpFrameStroke.Color = Color3.fromRGB(255, 255, 255)
+TpFrameStroke.Thickness = 1
+TpFrameStroke.Transparency = 0.8
+
+local TpInput = Instance.new("TextBox", TeleportFrame)
+TpInput.Size = UDim2.new(0.55, 0, 0, 30)
+TpInput.Position = UDim2.new(0, 12, 0.5, -15)
+TpInput.PlaceholderText = "  Type Player Name..."
 TpInput.Text = ""
-TpInput.BackgroundColor3 = Color3.fromRGB(5, 5, 5)
+TpInput.BackgroundColor3 = Color3.fromRGB(5, 5, 8)
 TpInput.TextColor3 = Color3.fromRGB(255, 255, 255)
 TpInput.Font = Enum.Font.MontserratBold
 TpInput.TextSize = 10
 Instance.new("UICorner", TpInput).CornerRadius = UDim.new(0, 5)
 
-local TpBtn = Instance.new("TextButton", TpFrame)
-TpBtn.Size = UDim2.new(0.45, 0, 0, 32)
-TpBtn.Position = UDim2.new(0.03, 0, 0.55, 0)
-TpBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+local TpBtn = Instance.new("TextButton", TeleportFrame)
+TpBtn.Size = UDim2.new(0.33, 0, 0, 30)
+TpBtn.Position = UDim2.new(0.62, 0, 0.5, -15)
+TpBtn.BackgroundColor3 = Color3.fromRGB(28, 28, 35)
 TpBtn.Text = "TELEPORT"
-TpBtn.TextColor3 = Color3.fromRGB(10, 10, 10)
+TpBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 TpBtn.Font = Enum.Font.MontserratBold
 TpBtn.TextSize = 9
-Instance.new("UICorner", TpBtn).CornerRadius = UDim.new(0, 4)
-
-local BringBtn = Instance.new("TextButton", TpFrame)
-BringBtn.Size = UDim2.new(0.45, 0, 0, 32)
-BringBtn.Position = UDim2.new(0.52, 0, 0.55, 0)
-BringBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-BringBtn.Text = "BRING TO ME"
-BringBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
-BringBtn.Font = Enum.Font.MontserratBold
-BringBtn.TextSize = 9
-Instance.new("UICorner", BringBtn).CornerRadius = UDim.new(0, 4)
-
+Instance.new("UICorner", TpBtn).CornerRadius = UDim.new(0, 5)
 
 -- ========================================== --
---  TAB 2: CORE SECURITY (PINDAH KE SINI)     --
+--  TAB 2: CORE SECURITY                      --
 -- ========================================== --
-CreateSectionHeader(TabSecurity, "BYPASS & PROTECTION")
-CreateToggle(TabSecurity, "ANTI BAN BYPASS (SECURE)", "AntiBanActive")
-CreateToggle(TabSecurity, "ANTI REPORT SYSTEM", "AntiReportActive")
-CreateToggle(TabSecurity, "NO CLIP (WALLPASS)", "NoClipActive")
-
+CreateSubHeader(TabSecurity, "Security Protocol", 1)
+CreateToggleCategory(TabSecurity, "ANTI BAN BYPASS (SECURE)", "AntiBanActive", 2)
+CreateToggleCategory(TabSecurity, "ANTI REPORT SYSTEM", "AntiReportActive", 3)
 
 -- ========================================== --
 --  TAB 3: BOOST MENU                         --
 -- ========================================== --
 local savedMaterials = {}
-CreateToggle(TabBoost, "POTATO PC MODE (ORIGINAL COLORS)", "PotatoModeActive", function(state)
+CreateSubHeader(TabBoost, "Performance Optimizer", 1)
+CreateToggleCategory(TabBoost, "POTATO PC MODE (ORIGINAL COLORS)", "PotatoModeActive", 2, function(state)
     if state then
         pcall(function()
             Lighting.GlobalShadows = false
@@ -530,86 +683,134 @@ CreateToggle(TabBoost, "POTATO PC MODE (ORIGINAL COLORS)", "PotatoModeActive", f
                 if obj:IsA("BasePart") and not obj:IsA("Terrain") then
                     savedMaterials[obj] = {Material = obj.Material, Color = obj.Color}
                     obj.Material = Enum.Material.SmoothPlastic
-                elseif obj:IsA("Texture") or obj:IsA("Decal") then
-                    obj.Transparency = 1
-                elseif obj:IsA("PostEffect") or obj:IsA("Atmosphere") or obj:IsA("Sky") then
-                    obj.Parent = Lighting
-                end
+                elseif obj:IsA("Texture") or obj:IsA("Decal") then obj.Transparency = 1
+                elseif obj:IsA("PostEffect") or obj:IsA("Atmosphere") or obj:IsA("Sky") then obj.Parent = Lighting end
             end
         end)
     else
         pcall(function()
             Lighting.GlobalShadows = true
-            for obj, data in pairs(savedMaterials) do
-                if obj and obj.Parent then
-                    obj.Material = data.Material
-                    obj.Color = data.Color
-                end
-            end
-            for _, obj in pairs(workspace:GetDescendants()) do
-                if obj:IsA("Texture") or obj:IsA("Decal") then obj.Transparency = 0 end
-            end
+            for obj, data in pairs(savedMaterials) do if obj and obj.Parent then obj.Material = data.Material obj.Color = data.Color end end
+            for _, obj in pairs(workspace:GetDescendants()) do if obj:IsA("Texture") or obj:IsA("Decal") then obj.Transparency = 0 end end
             savedMaterials = {}
         end)
     end
 end)
-
-CreateToggle(TabBoost, "UNLOCK FPS CAP (EXPERIMENTAL)", "FpsUnlockActive")
-CreateActionCard(TabBoost, "CLEAR MEMORY & CACHE JUNK", function(btn)
-    pcall(function()
-        settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.Disabled
-        setfpscap(360)
-    end)
-    btn.Text = "    ✦ CACHE CLEARED SUCCESSFULLY! ✦"
-    task.wait(1.5)
-    btn.Text = "    CLEAR MEMORY & CACHE JUNK"
+CreateToggleCategory(TabBoost, "UNLOCK FPS CAP (EXPERIMENTAL)", "FpsUnlockActive", 3)
+CreateActionCategory(TabBoost, "CLEAR MEMORY & CACHE JUNK", 4, function()
+    pcall(function() settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.Disabled setfpscap(360) end)
 end)
 
+-- ========================================== --
+--  TAB 4: MORE SC (NEW TORNADO TROLL EDITION) --
+-- ========================================== --
+local layoutMoreIndex = 1
+CreateSubHeader(TabMore, "Visual & Lighting Frame", layoutMoreIndex) layoutMoreIndex = layoutMoreIndex + 1
+
+CreateToggleCategory(TabMore, "FULL BRIGHT / NO DARK", "FullBrightActive", layoutMoreIndex, function(state)
+    pcall(function()
+        if state then
+            Lighting.Ambient = Color3.fromRGB(255, 255, 255)
+            Lighting.OutdoorAmbient = Color3.fromRGB(255, 255, 255)
+            Lighting.Brightness = 2 Lighting.ClockTime = 14
+        else
+            Lighting.Ambient = OriginalLighting.Ambient Lighting.OutdoorAmbient = OriginalLighting.OutdoorAmbient
+            Lighting.Brightness = OriginalLighting.Brightness Lighting.ClockTime = OriginalLighting.ClockTime
+        end
+    end)
+end) layoutMoreIndex = layoutMoreIndex + 1
+
+CreateToggleCategory(TabMore, "NO FOG / CLEAR WORLD", "NoFogActive", layoutMoreIndex, function(state)
+    pcall(function() Lighting.FogEnd = state and 999999 or OriginalLighting.FogEnd end)
+end) layoutMoreIndex = layoutMoreIndex + 1
+
+CreateSubHeader(TabMore, "Camera & Troll Utilities", layoutMoreIndex) layoutMoreIndex = layoutMoreIndex + 1
+CreateAdjuster(TabMore, "FORCE THIRD PERSON DIST", "ThirdPersonActive", "ThirdPersonDist", layoutMoreIndex) layoutMoreIndex = layoutMoreIndex + 1
+CreateToggleCategory(TabMore, "ANTI-AFK DISCONNECT BYPASS", "AntiAfkActive", layoutMoreIndex) layoutMoreIndex = layoutMoreIndex + 1
+
+-- FITUR BARU: SPIN BOT / TORNADO TROLL ADJUSTER
+CreateAdjuster(TabMore, "SPIN BOT SPEED CONTROL", "SpinBotActive", "SpinSpeed", layoutMoreIndex) layoutMoreIndex = layoutMoreIndex + 1
+
+CreateSubHeader(TabMore, "Shadow Stalker Custom System", layoutMoreIndex) layoutMoreIndex = layoutMoreIndex + 1
+
+local StalkerInputFrame = Instance.new("Frame", TabMore)
+StalkerInputFrame.Size = UDim2.new(0.98, 0, 0, 78)
+StalkerInputFrame.LayoutOrder = layoutMoreIndex
+StalkerInputFrame.BackgroundTransparency = 0.35
+StalkerInputFrame.BackgroundColor3 = Color3.fromRGB(14, 14, 18)
+Instance.new("UICorner", StalkerInputFrame).CornerRadius = UDim.new(0, 8)
+
+local StkFrameStroke = Instance.new("UIStroke", StalkerInputFrame)
+StkFrameStroke.Color = Color3.fromRGB(255, 255, 255)
+StkFrameStroke.Thickness = 1
+StkFrameStroke.Transparency = 0.8
+
+local StkInput = Instance.new("TextBox", StalkerInputFrame)
+StkInput.Size = UDim2.new(0.55, 0, 0, 30)
+StkInput.Position = UDim2.new(0, 12, 0.5, -15)
+StkInput.PlaceholderText = "  Type Target Name to Stalk..."
+StkInput.Text = ""
+StkInput.BackgroundColor3 = Color3.fromRGB(5, 5, 8)
+StkInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+StkInput.Font = Enum.Font.MontserratBold
+StkInput.TextSize = 10
+Instance.new("UICorner", StkInput).CornerRadius = UDim.new(0, 5)
+
+local StkBtn = Instance.new("TextButton", StalkerInputFrame)
+StkBtn.Size = UDim2.new(0.33, 0, 0, 30)
+StkBtn.Position = UDim2.new(0.62, 0, 0.5, -15)
+StkBtn.BackgroundColor3 = Color3.fromRGB(28, 28, 35)
+StkBtn.Text = "LOCK TARGET"
+StkBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+StkBtn.Font = Enum.Font.MontserratBold
+StkBtn.TextSize = 9
+Instance.new("UICorner", StkBtn).CornerRadius = UDim.new(0, 5)
 
 -- ========================================== --
---  TAB 4: INFO                               --
+--  TAB 5: INFO                               --
 -- ========================================== --
 local InfoFrame = Instance.new("Frame", TabInfo)
-InfoFrame.Size = UDim2.new(0.98, 0, 0, 110)
-InfoFrame.BackgroundTransparency = 0.6
-InfoFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-Instance.new("UICorner", InfoFrame).CornerRadius = UDim.new(0, 6)
+InfoFrame.Size = UDim2.new(0.98, 0, 0, 115)
+InfoFrame.BackgroundTransparency = 0.5
+InfoFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+Instance.new("UICorner", InfoFrame).CornerRadius = UDim.new(0, 8)
+local InfoFrameStroke = Instance.new("UIStroke", InfoFrame)
+InfoFrameStroke.Color = Color3.fromRGB(255, 255, 255)
+InfoFrameStroke.Thickness = 1 InfoFrameStroke.Transparency = 0.75
 
 local InfoLabel = Instance.new("TextLabel", InfoFrame)
 InfoLabel.Size = UDim2.new(0.94, 0, 0, 60)
 InfoLabel.Position = UDim2.new(0.03, 0, 0.05, 0)
 InfoLabel.BackgroundTransparency = 1
-InfoLabel.Text = "This script is made by : ?\n\nbtw join our discord link below"
-InfoLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-InfoLabel.Font = Enum.Font.MontserratBold
-InfoLabel.TextSize = 9
-InfoLabel.TextWrapped = true
+InfoLabel.Text = "This script is made by : \n\nbtw join our discord link below"
+InfoLabel.TextColor3 = Color3.fromRGB(210, 210, 210)
+InfoLabel.Font = Enum.Font.MontserratBold InfoLabel.TextSize = 9 InfoLabel.TextWrapped = true
 
 local DiscordBtn = Instance.new("TextButton", InfoFrame)
-DiscordBtn.Size = UDim2.new(0.94, 0, 0, 30)
+DiscordBtn.Size = UDim2.new(0.94, 0, 0, 32)
 DiscordBtn.Position = UDim2.new(0.03, 0, 0.65, 0)
-DiscordBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-DiscordBtn.Text = "🔗 COPY DISCORD LINK"
+DiscordBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+DiscordBtn.Text = "COPY DISCORD LINK"
 DiscordBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-DiscordBtn.Font = Enum.Font.MontserratBold
-DiscordBtn.TextSize = 9
-Instance.new("UICorner", DiscordBtn).CornerRadius = UDim.new(0, 4)
+DiscordBtn.Font = Enum.Font.MontserratBold DiscordBtn.TextSize = 9
+Instance.new("UICorner", DiscordBtn).CornerRadius = UDim.new(0, 5)
 
 DiscordBtn.MouseButton1Click:Connect(function()
-    if setclipboard then setclipboard(DISCORD_LINK) DiscordBtn.Text = "✅ LINK COPIED!" task.wait(2) DiscordBtn.Text = "🔗 COPY DISCORD LINK" end
+    if setclipboard then setclipboard(DISCORD_LINK) DiscordBtn.Text = "LINK COPIED!" task.wait(2) DiscordBtn.Text = "COPY DISCORD LINK" end
 end)
 
-
--- [[ LOGIC PERHITUNGAN ]] --
-local function GetPlayerFromInput()
-    local text = string.lower(TpInput.Text)
-    text = string.gsub(text, "^%s*(.-)%s*$", "%1")
-    if text ~= "" then
-        for _, p in pairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer and (string.sub(string.lower(p.Name), 1, string.len(text)) == text or string.sub(string.lower(p.DisplayName), 1, string.len(text)) == text) then return p end
-        end
-    end
-    return nil
+-- [[ ENGINE LOGIC ]] --
+local function IsVisibleWithRaycast(targetPart)
+    if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then return false end
+    local startPos = Camera.CFrame.Position
+    local targetPos = targetPart.Position
+    local direction = targetPos - startPos
+    local raycastParams = RaycastParams.new()
+    raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+    raycastParams.FilterDescendantsInstances = {LocalPlayer.Character, targetPart.Parent}
+    raycastParams.IgnoreWater = true
+    local result = workspace:Raycast(startPos, direction, raycastParams)
+    return result == nil
 end
 
 local function GetClosestPlayerToCenter()
@@ -623,7 +824,9 @@ local function GetClosestPlayerToCenter()
                 local pos, vis = Camera:WorldToViewportPoint(targetPart.Position)
                 if vis then
                     local m = (Vector2.new(pos.X, pos.Y) - center).Magnitude
-                    if m < dist then dist = m target = targetPart end
+                    if m < dist then 
+                        if Config.AimWallActive or (Config.AimActive and IsVisibleWithRaycast(targetPart)) then dist = m target = targetPart end
+                    end
                 end
             end
         end
@@ -631,17 +834,135 @@ local function GetClosestPlayerToCenter()
     return target
 end
 
+-- [[ TELEPORT PANEL LOGIC ]] --
 TpBtn.MouseButton1Click:Connect(function()
-    local tpP = GetPlayerFromInput()
-    if tpP and tpP.Character and tpP.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        LocalPlayer.Character.HumanoidRootPart.CFrame = tpP.Character.HumanoidRootPart.CFrame + Vector3.new(0, 3, 0)
+    local p = GetPlayerFromName(TpInput.Text)
+    if p and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        LocalPlayer.Character.HumanoidRootPart.CFrame = p.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, -3)
+        TpBtn.Text = "SUCCESS!"
+        task.wait(1)
+        TpBtn.Text = "TELEPORT"
+    else
+        TpBtn.Text = "NOT FOUND"
+        task.wait(1)
+        TpBtn.Text = "TELEPORT"
     end
 end)
 
-BringBtn.MouseButton1Click:Connect(function()
-    local tpP = GetPlayerFromInput()
-    if tpP and tpP.Character and tpP.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        tpP.Character.HumanoidRootPart.CFrame = LocalPlayer.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, -4)
+-- [[ LOGIC SHADOW STALKER LANGSUNG LOCK ]] --
+StkBtn.MouseButton1Click:Connect(function()
+    if Config.StalkActive then
+        Config.StalkActive = false
+        StalkTargetPlayer = nil
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+            Camera.CameraSubject = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        end
+        StkBtn.Text = "LOCK TARGET"
+        StkBtn.BackgroundColor3 = Color3.fromRGB(28, 28, 35)
+    else
+        local p = GetPlayerFromName(StkInput.Text)
+        if p and p.Character and p.Character:FindFirstChildOfClass("Humanoid") then
+            StalkTargetPlayer = p
+            Config.StalkActive = true
+            Camera.CameraSubject = p.Character:FindFirstChildOfClass("Humanoid")
+            StkBtn.Text = "STALKING: " .. string.upper(p.Name)
+            StkBtn.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
+        else
+            StkBtn.Text = "PLAYER NOT FOUND"
+            task.wait(1.5)
+            StkBtn.Text = "LOCK TARGET"
+        end
+    end
+end)
+
+-- [[ SHADOW STALKER VIA CTRL + CLICK ]] --
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if not gameProcessed and input.UserInputType == Enum.UserInputType.MouseButton1 and UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
+        local mousePos = UserInputService:GetMouseLocation()
+        local ray = Camera:ViewportPointToRay(mousePos.X, mousePos.Y)
+        local raycastResult = workspace:Raycast(ray.Origin, ray.Direction * 1000)
+        
+        if raycastResult and raycastResult.Instance then
+            local model = raycastResult.Instance:FindFirstAncestorOfClass("Model")
+            if model then
+                local targetPlayer = Players:GetPlayerFromCharacter(model)
+                if targetPlayer and targetPlayer ~= LocalPlayer then
+                    Config.StalkActive = not Config.StalkActive
+                    if Config.StalkActive then
+                        StalkTargetPlayer = targetPlayer
+                        if targetPlayer.Character and targetPlayer.Character:FindFirstChildOfClass("Humanoid") then
+                            Camera.CameraSubject = targetPlayer.Character:FindFirstChildOfClass("Humanoid")
+                        end
+                        StkBtn.Text = "STALKING: " .. string.upper(targetPlayer.Name)
+                        StkBtn.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
+                    else
+                        StalkTargetPlayer = nil
+                        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+                            Camera.CameraSubject = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+                        end
+                        StkBtn.Text = "LOCK TARGET"
+                        StkBtn.BackgroundColor3 = Color3.fromRGB(28, 28, 35)
+                    end
+                end
+            end
+        end
+    end
+end)
+
+-- Anti AFK
+pcall(function()
+    local virtualUser = game:GetService("VirtualUser")
+    LocalPlayer.Idled:Connect(function()
+        if Config.AntiAfkActive then
+            virtualUser:Button2Down(Vector2.new(0,0), Camera.CFrame) task.wait(1)
+            virtualUser:Button2Up(Vector2.new(0,0), Camera.CFrame)
+        end
+    end)
+end)
+
+-- [[ RENDERING LOOP ]] --
+RunService.RenderStepped:Connect(function()
+    if FovCircle then
+        pcall(function()
+            FovCircle.Visible = Config.ShowFov
+            if Config.ShowFov then
+                FovCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+                FovCircle.Radius = Config.FovRadius
+            end
+        end)
+    end
+
+    pcall(function()
+        if Config.ThirdPersonActive then
+            LocalPlayer.CameraMaxZoomDistance = Config.ThirdPersonDist
+            LocalPlayer.CameraMinZoomDistance = Config.ThirdPersonDist
+        else
+            LocalPlayer.CameraMaxZoomDistance = 400 LocalPlayer.CameraMinZoomDistance = 0.5
+        end
+    end)
+
+    for _, p in pairs(Players:GetPlayers()) do
+        local objects = EspCache[p]
+        if objects then
+            pcall(function()
+                local box = objects.Box local tracer = objects.Tracer
+                if p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChildOfClass("Humanoid") and p.Character:FindFirstChildOfClass("Humanoid").Health > 0 then
+                    local pHrp = p.Character.HumanoidRootPart
+                    local pos, onScreen = Camera:WorldToViewportPoint(pHrp.Position)
+                    if onScreen then
+                        if Config.BoxEspActive and box then
+                            local head = p.Character:FindFirstChild("Head")
+                            local headPos = head and Camera:WorldToViewportPoint(head.Position) or pos
+                            local boxHeight = math.abs(headPos.Y - pos.Y) * 3 local boxWidth = boxHeight / 1.5
+                            box.Size = Vector2.new(boxWidth, boxHeight) box.Position = Vector2.new(pos.X - boxWidth / 2, pos.Y - boxHeight / 2) box.Visible = true
+                        else if box then box.Visible = false end end
+                        if Config.TracerActive and tracer then
+                            tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y) tracer.To = Vector2.new(pos.X, pos.Y) tracer.Visible = true
+                        else if tracer then tracer.Visible = false end end
+                    else if box then box.Visible = false end if tracer then tracer.Visible = false end end
+                else if box then box.Visible = false end if tracer then tracer.Visible = false end end
+            end)
+        end
     end
 end)
 
@@ -651,88 +972,55 @@ RunService.Heartbeat:Connect(function()
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
     local hum = char and char:FindFirstChildOfClass("Humanoid")
 
-    -- 1. No Clip (Wallpass)
+    if Config.StalkActive and StalkTargetPlayer and StalkTargetPlayer.Character and StalkTargetPlayer.Character:FindFirstChild("HumanoidRootPart") and hrp then
+        pcall(function()
+            local targetHrp = StalkTargetPlayer.Character.HumanoidRootPart
+            hrp.CFrame = targetHrp.CFrame * CFrame.new(0, 0, 3.5)
+        end)
+    end
+
     if Config.NoClipActive and char then
         for _, part in pairs(char:GetDescendants()) do if part:IsA("BasePart") then part.CanCollide = false end end
     end
 
-    FovCircle.Visible = Config.ShowFov
-    if Config.ShowFov then
-        FovCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-        FovCircle.Radius = Config.FovRadius
+    -- [[ REAL-TIME SPIN BOT TORNADO ENGINE ]] --
+    if Config.SpinBotActive and hrp then
+        pcall(function()
+            -- Memutar paksa CFrame sumbu Y RootPart berdasarkan Config.SpinSpeed tanpa merusak movement WASD
+            hrp.CFrame = hrp.CFrame * CFrame.Angles(0, math.rad(Config.SpinSpeed), 0)
+        end)
     end
 
-    -- Hitbox Expander
     local closestTarget = GetClosestPlayerToCenter()
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Head") then
             pcall(function()
                 local head = p.Character.Head
                 if Config.HitboxActive and closestTarget and (closestTarget.Name == "Head" and head == closestTarget or closestTarget.Name == "HumanoidRootPart" and head.Parent == closestTarget.Parent) then
-                    head.Size = Vector3.new(Config.HitboxSize, Config.HitboxSize, Config.HitboxSize)
-                    head.Transparency = 0.5
-                    head.CanCollide = false
+                    head.Size = Vector3.new(Config.HitboxSize, Config.HitboxSize, Config.HitboxSize) head.Transparency = 0.5 head.CanCollide = false
                 else
-                    head.Size = Vector3.new(2, 1, 1)
-                    head.Transparency = 0
-                    head.CanCollide = true
+                    head.Size = Vector3.new(2, 1, 1) head.Transparency = 0 head.CanCollide = true
                 end
             end)
         end
     end
 
-    -- ESP Rendering
-    for _, p in pairs(Players:GetPlayers()) do
-        local objects = EspCache[p]
-        if objects then
-            local box = objects.Box
-            local tracer = objects.Tracer
-            if p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChildOfClass("Humanoid") and p.Character:FindFirstChildOfClass("Humanoid").Health > 0 then
-                local pHrp = p.Character.HumanoidRootPart
-                local pos, onScreen = Camera:WorldToViewportPoint(pHrp.Position)
-                if onScreen then
-                    if Config.BoxEspActive then
-                        local head = p.Character:FindFirstChild("Head")
-                        local headPos = head and Camera:WorldToViewportPoint(head.Position) or pos
-                        local boxHeight = math.abs(headPos.Y - pos.Y) * 3 local boxWidth = boxHeight / 1.5
-                        box.Size = Vector2.new(boxWidth, boxHeight)
-                        box.Position = Vector2.new(pos.X - boxWidth / 2, pos.Y - boxHeight / 2)
-                        box.Visible = true
-                    else box.Visible = false end
-                    if Config.TracerActive then
-                        tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
-                        tracer.To = Vector2.new(pos.X, pos.Y)
-                        tracer.Visible = true
-                    else tracer.Visible = false end
-                else box.Visible = false tracer.Visible = false end
-            else box.Visible = false tracer.Visible = false end
-        end
-    end
-
-    -- Chams ESP
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= LocalPlayer and p.Character then
-            local hl = p.Character:FindFirstChild("VoidESP")
-            if Config.ChamsEspActive then
-                if not hl then
-                    hl = Instance.new("Highlight", p.Character) hl.Name = "VoidESP"
-                    hl.FillColor = Color3.fromRGB(255, 255, 255) hl.OutlineColor = Color3.fromRGB(0, 0, 0)
-                end
-            elseif hl then hl:Destroy() end
+            pcall(function()
+                local hl = p.Character:FindFirstChild("VoidESP")
+                if Config.ChamsEspActive then
+                    if not hl then hl = Instance.new("Highlight", p.Character) hl.Name = "VoidESP" hl.FillColor = Color3.fromRGB(255, 255, 255) hl.OutlineColor = Color3.fromRGB(0, 0, 0) end
+                elseif hl then hl:Destroy() end
+            end)
         end
     end
 
-    -- Movement Physics
     if hrp and hum then
-        if Config.SpeedActive and hum.MoveDirection.Magnitude > 0 then
-            hrp.CFrame = hrp.CFrame + (hum.MoveDirection * (Config.SpeedValue / 100))
-        end
-        if Config.JumpActive and UserInputService:IsKeyDown(Enum.KeyCode.Space) then
-            hrp.Velocity = Vector3.new(hrp.Velocity.X, Config.JumpValue, hrp.Velocity.Z)
-        end
+        if Config.SpeedActive and hum.MoveDirection.Magnitude > 0 then hrp.CFrame = hrp.CFrame + (hum.MoveDirection * (Config.SpeedValue / 100)) end
+        if Config.JumpActive and UserInputService:IsKeyDown(Enum.KeyCode.Space) then hrp.Velocity = Vector3.new(hrp.Velocity.X, Config.JumpValue, hrp.Velocity.Z) end
         
-        local att = hrp:FindFirstChild("VoidFlyAtt")
-        local lv = hrp:FindFirstChild("VoidFly")
+        local att = hrp:FindFirstChild("VoidFlyAtt") local lv = hrp:FindFirstChild("VoidFly")
         if Config.FlyActive then
             if not att then att = Instance.new("Attachment", hrp) att.Name = "VoidFlyAtt" end
             if not lv then lv = Instance.new("LinearVelocity", hrp) lv.Name = "VoidFly" lv.Attachment0 = att lv.MaxForce = math.huge end
@@ -742,14 +1030,22 @@ RunService.Heartbeat:Connect(function()
             if UserInputService:IsKeyDown(Enum.KeyCode.A) then dir = dir - Camera.CFrame.RightVector end
             if UserInputService:IsKeyDown(Enum.KeyCode.D) then dir = dir + Camera.CFrame.RightVector end
             if UserInputService:IsKeyDown(Enum.KeyCode.Space) then dir = dir + Vector3.new(0, 1, 0) end
-            if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then dir = dir - Vector3.new(0, 1, 0) end
             lv.VectorVelocity = dir * Config.FlyValue
         else if lv then lv:Destroy() end if att then att:Destroy() end end
     end
 
-    -- Aimbot Lock
-    if Config.AimActive and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
+    if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
         local target = GetClosestPlayerToCenter()
         if target then Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.Position) end
     end
+end)
+
+MinBtn.MouseButton1Click:Connect(function()
+    TweenService:Create(MainFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(0, 0, 0, 0), BackgroundTransparency = 1, ImageTransparency = 1}):Play()
+    task.wait(0.25) MainFrame.Visible = false MaxBtn.Visible = true
+end)
+
+MaxBtn.MouseButton1Click:Connect(function()
+    MaxBtn.Visible = false MainFrame.Visible = true
+    TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.new(0, 580, 0, 440), BackgroundTransparency = 0.05, ImageTransparency = 0.75}):Play()
 end)
