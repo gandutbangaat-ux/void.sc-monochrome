@@ -24,6 +24,7 @@ local Config = {
     SpeedActive = false,
     JumpActive = false,
     FlyActive = false,
+    NoclipActive = false, -- NOCLIP IS BACK SAFELY
     FovRadius = 150,
     HitboxSize = 15,
     SpeedValue = 100,
@@ -31,7 +32,6 @@ local Config = {
     FlyValue = 100,
     
     -- Features Config
-    NoClipActive = false,
     InvisibleActive = false,
     AntiReportActive = true,
     AntiBanActive = true,
@@ -45,7 +45,7 @@ local Config = {
     AntiAfkActive = false,
     NoFogActive = false,
     
-    -- Stalker & NEW SPIN BOT CONFIG
+    -- Stalker & SPIN BOT CONFIG
     StalkActive = false,
     SpinBotActive = false,
     SpinSpeed = 50 
@@ -185,6 +185,7 @@ MainFrame.Image = BACKGROUND_IMAGE
 MainFrame.ImageTransparency = 0.75
 MainFrame.ScaleType = Enum.ScaleType.Crop
 MainFrame.BorderSizePixel = 0
+MainFrame.ClipsDescendants = true
 MainFrame.Parent = ScreenGui
 MakeDraggable(MainFrame)
 
@@ -205,14 +206,14 @@ MinBtn.TextSize = 14
 MinBtn.Parent = MainFrame
 
 local MaxBtn = Instance.new("TextButton")
-MaxBtn.Size = UDim2.new(0, 100, 0, 40)
+MaxBtn.Size = UDim2.new(0, 0, 0, 0)
 MaxBtn.Position = UDim2.new(0, 25, 0, 25)
 MaxBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
 MaxBtn.BackgroundTransparency = 0.1
 MaxBtn.Text = "V.D"
 MaxBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 MaxBtn.Font = Enum.Font.MontserratBold
-MaxBtn.TextSize = 11
+MaxBtn.TextSize = 0
 MaxBtn.Visible = false
 MaxBtn.Parent = ScreenGui
 
@@ -260,7 +261,7 @@ local function AnimateTabContent(scrollFrame)
             local stroke = item:FindFirstChildOfClass("UIStroke")
             if stroke then stroke.Transparency = 1 end
             local label = item:FindFirstChildOfClass("TextLabel") or item
-            if label:IsA("TextLabel") or label:IsA("TextButton") then label.TextTransparency = 1 end
+            if label:IsA("TextLabel") or label:IsA("TextButton") or label:IsA("TextBox") then label.TextTransparency = 1 end
         end
     end
     TweenService:Create(scrollFrame, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = UDim2.new(0, 0, 0, 0)}):Play()
@@ -302,7 +303,7 @@ local function CreateTab(tabName)
     local scrollFrame = Instance.new("ScrollingFrame", ContentContainer)
     scrollFrame.Size = UDim2.new(1, 0, 1, 0)
     scrollFrame.BackgroundTransparency = 1
-    scrollFrame.CanvasSize = UDim2.new(0, 0, 6.2, 0)
+    scrollFrame.CanvasSize = UDim2.new(0, 0, 6.5, 0) -- Adjusted canvas size for new item
     scrollFrame.ScrollBarThickness = 3
     scrollFrame.ScrollBarImageColor3 = Color3.fromRGB(255, 255, 255)
     scrollFrame.Visible = false
@@ -429,6 +430,15 @@ local function CreateAdjuster(container, text, activeKey, valueKey, order)
         local activeColorBg = Config[activeKey] and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(28, 28, 35)
         local activeColorText = Config[activeKey] and Color3.fromRGB(10, 10, 10) or Color3.fromRGB(255, 255, 255)
         TweenService:Create(toggle, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = activeColorBg, TextColor3 = activeColorText}):Play()
+        
+        if not Config[activeKey] then
+            local char = LocalPlayer.Character
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+            if hum then
+                if activeKey == "SpeedActive" then hum.WalkSpeed = 16
+                elseif activeKey == "JumpActive" then hum.JumpPower = 50 end
+            end
+        end
     end)
 
     input.FocusLost:Connect(function()
@@ -486,7 +496,6 @@ local function CreateToggleCategory(container, text, activeKey, order, callback)
     return toggle, label
 end
 
--- NEW FUNCTION: Membuat Dual Toggle Berdampingan khusus untuk Aimlock + Wall Assist (Kanan)
 local function CreateDualToggleCategory(container, text1, text2, key1, key2, order)
     local frame = Instance.new("Frame", container)
     frame.Size = UDim2.new(0.98, 0, 0, 68)
@@ -510,7 +519,6 @@ local function CreateDualToggleCategory(container, text1, text2, key1, key2, ord
     label.TextSize = 9
     label.TextXAlignment = Enum.TextXAlignment.Left
 
-    -- Tombol Kiri (Aim Active)
     local toggle1 = Instance.new("TextButton", frame)
     toggle1.Size = UDim2.new(0.43, 0, 0, 26)
     toggle1.Position = UDim2.new(0, 12, 0.5, 3)
@@ -521,9 +529,8 @@ local function CreateDualToggleCategory(container, text1, text2, key1, key2, ord
     toggle1.TextSize = 9
     Instance.new("UICorner", toggle1).CornerRadius = UDim.new(0, 5)
 
-    -- Tombol Kanan (Wall Assist Active)
     local toggle2 = Instance.new("TextButton", frame)
-    toggle2.Size = UDim2.new(0.43, 0, 0, 26)
+    toggle2.Size = UDim2.new(0.52, 0, 0, 26)
     toggle2.Position = UDim2.new(0.52, 0, 0.5, 3)
     toggle2.Text = Config[key2] and "WALL: IGNORE" or "WALL: CHECK"
     toggle2.BackgroundColor3 = Config[key2] and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(28, 28, 35)
@@ -647,7 +654,7 @@ local function CreateTargetCategory(container, text, order)
     end)
 end
 
--- [[ REGISTER TAB ]] --
+-- [[ REGISTER TAB PANEL ]] --
 local TabMain = CreateTab("Main SC")
 local TabSecurity = CreateTab("Core Security")
 local TabBoost = CreateTab("Boost Menu")
@@ -655,31 +662,28 @@ local TabMore = CreateTab("More sc")
 local TabInfo = CreateTab("Info")
 
 -- ========================================== --
---  TAB 1: MAIN SC                            --
+--  TAB 1: MAIN SC DESIGN                      --
 -- ========================================== --
-local layoutIndex = 1
-CreateSubHeader(TabMain, "Combat Assist System", layoutIndex) layoutIndex = layoutIndex + 1
-CreateAdjuster(TabMain, "SHOW FOV CIRCLE & SIZE", "ShowFov", "FovRadius", layoutIndex) layoutIndex = layoutIndex + 1
+local idx = 1
+CreateSubHeader(TabMain, "Combat Assist System", idx) idx = idx + 1
+CreateAdjuster(TabMain, "SHOW FOV CIRCLE & SIZE", "ShowFov", "FovRadius", idx) idx = idx + 1
+CreateDualToggleCategory(TabMain, "LOCK AIM ASSIST (RMB)", "WALL AIM ASSIST", "AimActive", "AimWallActive", idx) idx = idx + 1
+CreateTargetCategory(TabMain, "SELECT AIM TARGET POOL", idx) idx = idx + 1
 
--- Diperbarui: Tombol Wall Aim Assist dipindah ke sebelah Kanan Tombol Aim Assist utamanya!
-CreateDualToggleCategory(TabMain, "LOCK AIM ASSIST (RMB)", "WALL AIM ASSIST", "AimActive", "AimWallActive", layoutIndex) layoutIndex = layoutIndex + 1
+CreateSubHeader(TabMain, "Visual ESP & Hitbox Panel", idx) idx = idx + 1
+CreateAdjuster(TabMain, "BIG HITBOX EXPANDER", "HitboxActive", "HitboxSize", idx) idx = idx + 1
+CreateToggleCategory(TabMain, "2D BOX ESP", "BoxEspActive", idx) idx = idx + 1
+CreateToggleCategory(TabMain, "TRACERS ESP LINE", "TracerActive", idx) idx = idx + 1
+CreateToggleCategory(TabMain, "WHITE ESP CHAMS (BODY)", "ChamsEspActive", idx) idx = idx + 1
 
-CreateTargetCategory(TabMain, "SELECT AIM TARGET POOL", layoutIndex) layoutIndex = layoutIndex + 1
+CreateSubHeader(TabMain, "Movement Systems", idx) idx = idx + 1
+CreateAdjuster(TabMain, "SPEED HACK", "SpeedActive", "SpeedValue", idx) idx = idx + 1
+CreateAdjuster(TabMain, "HIGH JUMP", "JumpActive", "JumpValue", idx) idx = idx + 1
+CreateAdjuster(TabMain, "NEURAL FLY", "FlyActive", "FlyValue", idx) idx = idx + 1
+CreateToggleCategory(TabMain, "BYPASS NOCLIP (WALLPASS)", "NoclipActive", idx) idx = idx + 1 -- NOCLIP TOGGLE ADDED
 
-CreateSubHeader(TabMain, "Visual ESP & Hitbox Panel", layoutIndex) layoutIndex = layoutIndex + 1
-CreateAdjuster(TabMain, "BIG HITBOX EXPANDER", "HitboxActive", "HitboxSize", layoutIndex) layoutIndex = layoutIndex + 1
-CreateToggleCategory(TabMain, "2D BOX ESP", "BoxEspActive", layoutIndex) layoutIndex = layoutIndex + 1
-CreateToggleCategory(TabMain, "TRACERS ESP LINE", "TracerActive", layoutIndex) layoutIndex = layoutIndex + 1
-CreateToggleCategory(TabMain, "WHITE ESP CHAMS (BODY)", "ChamsEspActive", layoutIndex) layoutIndex = layoutIndex + 1
-
-CreateSubHeader(TabMain, "Movement Systems", layoutIndex) layoutIndex = layoutIndex + 1
-CreateAdjuster(TabMain, "SPEED HACK", "SpeedActive", "SpeedValue", layoutIndex) layoutIndex = layoutIndex + 1
-CreateAdjuster(TabMain, "HIGH JUMP", "JumpActive", "JumpValue", layoutIndex) layoutIndex = layoutIndex + 1
-CreateAdjuster(TabMain, "NEURAL FLY", "FlyActive", "FlyValue", layoutIndex) layoutIndex = layoutIndex + 1
-
-CreateSubHeader(TabMain, "Player Utility Frame", layoutIndex) layoutIndex = layoutIndex + 1
-CreateToggleCategory(TabMain, "NO CLIP (WALLPASS)", "NoClipActive", layoutIndex) layoutIndex = layoutIndex + 1
-CreateToggleCategory(TabMain, "TOGGLE INVISIBLE (LOCAL)", "InvisibleActive", layoutIndex, function(state)
+CreateSubHeader(TabMain, "Player Utility Frame", idx) idx = idx + 1
+CreateToggleCategory(TabMain, "TOGGLE INVISIBLE (LOCAL)", "InvisibleActive", idx, function(state)
     local char = LocalPlayer.Character
     if char then
         for _, part in pairs(char:GetDescendants()) do
@@ -688,13 +692,13 @@ CreateToggleCategory(TabMain, "TOGGLE INVISIBLE (LOCAL)", "InvisibleActive", lay
             end
         end
     end
-end) layoutIndex = layoutIndex + 1
+end) idx = idx + 1
 
 -- Instant Teleport Panel
-CreateSubHeader(TabMain, "Instant Teleport Panel", layoutIndex) layoutIndex = layoutIndex + 1
+CreateSubHeader(TabMain, "Instant Teleport Panel", idx) idx = idx + 1
 local TeleportFrame = Instance.new("Frame", TabMain)
-TeleportFrame.Size = UDim2.new(0.98, 0, 0, 78)
-TeleportFrame.LayoutOrder = layoutIndex
+TeleportFrame.Size = UDim2.new(0.98, 0, 0, 68)
+TeleportFrame.LayoutOrder = idx
 TeleportFrame.BackgroundTransparency = 0.35
 TeleportFrame.BackgroundColor3 = Color3.fromRGB(14, 14, 18)
 Instance.new("UICorner", TeleportFrame).CornerRadius = UDim.new(0, 8)
@@ -724,6 +728,7 @@ TpBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 TpBtn.Font = Enum.Font.MontserratBold
 TpBtn.TextSize = 9
 Instance.new("UICorner", TpBtn).CornerRadius = UDim.new(0, 5)
+idx = idx + 1
 
 -- ========================================== --
 --  TAB 2: CORE SECURITY                      --
@@ -855,39 +860,81 @@ end)
 -- ========================================== --
 CreateSubHeader(TabInfo, "Credits & Information", 1)
 local InfoFrame = Instance.new("Frame", TabInfo)
-InfoFrame.Size = UDim2.new(0.98, 0, 0, 100)
+InfoFrame.Size = UDim2.new(0.98, 0, 0, 110)
 InfoFrame.LayoutOrder = 2
 InfoFrame.BackgroundTransparency = 0.35
 InfoFrame.BackgroundColor3 = Color3.fromRGB(14, 14, 18)
 Instance.new("UICorner", InfoFrame).CornerRadius = UDim.new(0, 8)
 
-local InfoLabel = Instance.new("TextLabel", InfoFrame)
-InfoLabel.Size = UDim2.new(1, -20, 1, -20)
-InfoLabel.Position = UDim2.new(0, 10, 0, 10)
-InfoLabel.Text = "VOID UI V2 - PREMIUM MONOCHROME\n\nPress 'RightControl' to Toggle Menu visibility.\nJoin Discord for updates: " .. DISCORD_LINK
-InfoLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-InfoLabel.Font = Enum.Font.MontserratMedium
-InfoLabel.TextSize = 10
-InfoLabel.TextWrapped = true
+local InfoTextBox = Instance.new("TextBox", InfoFrame)
+InfoTextBox.Size = UDim2.new(1, -20, 1, -20)
+InfoTextBox.Position = UDim2.new(0, 10, 0, 10)
+InfoTextBox.BackgroundTransparency = 1
+InfoTextBox.Text = "VOID UI V2 - PREMIUM MONOCHROME\n\nPress 'RightControl' to Toggle Menu visibility.\nJoin Discord for updates:\n" .. DISCORD_LINK
+InfoTextBox.TextColor3 = Color3.fromRGB(200, 200, 200)
+InfoTextBox.Font = Enum.Font.MontserratMedium
+InfoTextBox.TextSize = 10
+InfoTextBox.ClearTextOnFocus = false
+InfoTextBox.TextEditable = false 
+InfoTextBox.TextWrapped = true
+InfoTextBox.MultiLine = true
 
 -- ========================================== --
 -- [[ FUNCTIONALITIES CORE LOOP ENGINE ]]     --
 -- ========================================== --
 
+-- Transisi Visibility via RightControl dengan Animasi Fade / Scale
+local isMainFrameVisible = true
 UserInputService.InputBegan:Connect(function(input, processed)
     if not processed and input.KeyCode == Enum.KeyCode.RightControl then
-        MainFrame.Visible = not MainFrame.Visible
+        isMainFrameVisible = not isMainFrameVisible
+        if isMainFrameVisible then
+            MainFrame.Visible = true
+            TweenService:Create(MainFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(0, 580, 0, 440), BackgroundTransparency = 0.05, ImageTransparency = 0.75}):Play()
+        else
+            local tw = TweenService:Create(MainFrame, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Size = UDim2.new(0, 580, 0, 0), BackgroundTransparency = 1, ImageTransparency = 1})
+            tw:Play()
+            tw.Completed:Connect(function() if not isMainFrameVisible then MainFrame.Visible = false end end)
+        end
     end
 end)
 
+-- ANIMASI MINIMIZE
 MinBtn.MouseButton1Click:Connect(function()
-    MainFrame.Visible = false
-    MaxBtn.Visible = true
+    local animOut = TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
+        Size = UDim2.new(0, 0, 0, 0),
+        BackgroundTransparency = 1,
+        ImageTransparency = 1
+    })
+    animOut:Play()
+    animOut.Completed:Connect(function()
+        MainFrame.Visible = false
+        MaxBtn.Visible = true
+        MaxBtn.Size = UDim2.new(0, 0, 0, 0)
+        MaxBtn.TextSize = 0
+        TweenService:Create(MaxBtn, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+            Size = UDim2.new(0, 100, 0, 40),
+            TextSize = 11
+        }):Play()
+    end)
 end)
 
+-- ANIMASI MAXIMIZE
 MaxBtn.MouseButton1Click:Connect(function()
-    MainFrame.Visible = true
-    MaxBtn.Visible = false
+    local animMaxOut = TweenService:Create(MaxBtn, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+        Size = UDim2.new(0, 0, 0, 0),
+        TextSize = 0
+    })
+    animMaxOut:Play()
+    animMaxOut.Completed:Connect(function()
+        MaxBtn.Visible = false
+        MainFrame.Visible = true
+        TweenService:Create(MainFrame, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+            Size = UDim2.new(0, 580, 0, 440),
+            BackgroundTransparency = 0.05,
+            ImageTransparency = 0.75
+        }):Play()
+    end)
 end)
 
 TpBtn.MouseButton1Click:Connect(function()
@@ -897,7 +944,6 @@ TpBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- [[ LOGIKA AWAL DIAUTOMATISASI DAN DISATUKAN DI SINI ]] --
 local function GetClosestPlayerToMouse()
     local target = nil
     local maxDist = Config.FovRadius
@@ -909,9 +955,6 @@ local function GetClosestPlayerToMouse()
             local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
             
             if onScreen then
-                -- Gabungan Logika Wall Aim Assist:
-                -- Jika AimWallActive == FALSE (WALL: CHECK), maka script akan nge-scan halangan objek/tembok.
-                -- Jika AimWallActive == TRUE (WALL: IGNORE), bagian scan tembok di bawah ini dilewati (tembus pandang).
                 if not Config.AimWallActive then
                     local rayParts = Camera:GetPartsObscuringTarget({Camera.CFrame.Position, part.Position}, {LocalPlayer.Character, p.Character})
                     if #rayParts > 0 then continue end
@@ -937,6 +980,20 @@ LocalPlayer.Idled:Connect(function()
     end
 end)
 
+-- [[ SEPARATE SAFE NOCLIP STEP LOOP ]] --
+RunService.Stepped:Connect(function()
+    if Config.NoclipActive then
+        local myChar = LocalPlayer.Character
+        if myChar then
+            for _, part in pairs(myChar:GetDescendants()) do
+                if part:IsA("BasePart") and part.CanCollide == true then
+                    part.CanCollide = false
+                end
+            end
+        end
+    end
+end)
+
 RunService.RenderStepped:Connect(function()
     local mouseLocation = UserInputService:GetMouseLocation()
     
@@ -946,7 +1003,6 @@ RunService.RenderStepped:Connect(function()
         FovCircle.Visible = Config.ShowFov
     end
 
-    -- Sistem Utama Aimlock RMB (Logikanya otomatis membaca toggle Wall di atas)
     if Config.AimActive and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
         local target = GetClosestPlayerToMouse()
         if target and target.Character and target.Character:FindFirstChild(Config.AimTarget) then
@@ -1029,8 +1085,17 @@ RunService.RenderStepped:Connect(function()
     local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
 
     if myChar and myHrd and myHum then
-        if Config.SpeedActive then myHum.WalkSpeed = Config.SpeedValue end
-        if Config.JumpActive then myHum.JumpPower = Config.JumpValue end
+        if Config.SpeedActive then 
+            myHum.WalkSpeed = Config.SpeedValue 
+        else
+            myHum.WalkSpeed = 16
+        end
+        
+        if Config.JumpActive then 
+            myHum.JumpPower = Config.JumpValue 
+        else
+            myHum.JumpPower = 50
+        end
 
         if Config.FlyActive then
             local flyVelocity = myHrd:FindFirstChild("VoidFlyVelocity") or Instance.new("LinearVelocity")
@@ -1056,12 +1121,6 @@ RunService.RenderStepped:Connect(function()
         else
             if myHrd:FindFirstChild("VoidFlyVelocity") then myHrd.VoidFlyVelocity:Destroy() end
             if myHrd:FindFirstChild("VoidFlyAttachment") then myHrd.VoidFlyAttachment:Destroy() end
-        end
-
-        if Config.NoClipActive then
-            for _, limb in pairs(myChar:GetChildren()) do
-                if limb:IsA("BasePart") then limb.CanCollide = false end
-            end
         end
 
         if Config.SpinBotActive then
