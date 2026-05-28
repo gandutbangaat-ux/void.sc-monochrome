@@ -15,9 +15,9 @@ local DISCORD_LINK = "https://discord.gg/q3yHMq9D"
 local Config = {
     ShowFov = false,
     AimActive = false,
-    AimWallActive = false, 
+    AimWallActive = true, 
     AimTarget = "Head",
-    AimMode = "Mouse", -- MODE: "Center" atau "Mouse" (Unlocked sudah dihapus)
+    AimMode = "Center",   
     HitboxActive = false,
     BoxEspActive = false,
     TracerActive = false,
@@ -323,16 +323,16 @@ local function CreateTab(tabName)
             t.Button.TextColor3 = Color3.fromRGB(160, 160, 160)
             t.Stroke.Transparency = 0.85
         end
-        tabBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-        tabBtn.TextColor3 = Color3.fromRGB(10, 10, 10)
+        tabBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 45) -- TETAP DARK MONOCHROME
+        tabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
         tabStroke.Transparency = 0.2
         AnimateTabContent(scrollFrame)
     end)
     
     if not ActiveTab then
         scrollFrame.Visible = true
-        tabBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-        tabBtn.TextColor3 = Color3.fromRGB(10, 10, 10)
+        tabBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 45) -- TETAP DARK MONOCHROME
+        tabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
         tabStroke.Transparency = 0.2
         ActiveTab = tabName
         task.defer(function() AnimateTabContent(scrollFrame) end)
@@ -391,8 +391,8 @@ local function CreateAdjuster(container, text, activeKey, valueKey, order)
     toggle.Size = UDim2.new(0, 75, 0, 26)
     toggle.Position = UDim2.new(0, 12, 0.5, 3)
     toggle.Text = "TOGGLE"
-    toggle.BackgroundColor3 = Config[activeKey] and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(28, 28, 35)
-    toggle.TextColor3 = Config[activeKey] and Color3.fromRGB(10, 10, 10) or Color3.fromRGB(255, 255, 255)
+    toggle.BackgroundColor3 = Color3.fromRGB(35, 35, 45) -- TIDAK ADA WARNA PUTIH
+    toggle.TextColor3 = Color3.fromRGB(255, 255, 255)
     toggle.Font = Enum.Font.MontserratBold
     toggle.TextSize = 9
     Instance.new("UICorner", toggle).CornerRadius = UDim.new(0, 5)
@@ -428,9 +428,6 @@ local function CreateAdjuster(container, text, activeKey, valueKey, order)
     toggle.MouseButton1Click:Connect(function()
         Config[activeKey] = not Config[activeKey]
         label.Text = string.upper(text) .. "   //   " .. (Config[activeKey] and "ACTIVE" or "DISABLED")
-        local activeColorBg = Config[activeKey] and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(28, 28, 35)
-        local activeColorText = Config[activeKey] and Color3.fromRGB(10, 10, 10) or Color3.fromRGB(255, 255, 255)
-        TweenService:Create(toggle, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = activeColorBg, TextColor3 = activeColorText}):Play()
         
         if not Config[activeKey] then
             local char = LocalPlayer.Character
@@ -479,8 +476,8 @@ local function CreateToggleCategory(container, text, activeKey, order, callback)
     toggle.Size = UDim2.new(0, 120, 0, 26)
     toggle.Position = UDim2.new(0, 12, 0.5, 3)
     toggle.Text = Config[activeKey] and "[ ON ]" or "[ OFF ]"
-    toggle.BackgroundColor3 = Config[activeKey] and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(28, 28, 35)
-    toggle.TextColor3 = Config[activeKey] and Color3.fromRGB(10, 10, 10) or Color3.fromRGB(255, 255, 255)
+    toggle.BackgroundColor3 = Color3.fromRGB(35, 35, 45) -- TETAP GA PAKE PUTIH
+    toggle.TextColor3 = Color3.fromRGB(255, 255, 255)
     toggle.Font = Enum.Font.MontserratBold
     toggle.TextSize = 9
     Instance.new("UICorner", toggle).CornerRadius = UDim.new(0, 5)
@@ -489,17 +486,12 @@ local function CreateToggleCategory(container, text, activeKey, order, callback)
         Config[activeKey] = not Config[activeKey]
         label.Text = string.upper(text) .. "   //   " .. (Config[activeKey] and "ACTIVE" or "DISABLED")
         toggle.Text = Config[activeKey] and "[ ON ]" or "[ OFF ]"
-        
-        local activeColorBg = Config[activeKey] and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(28, 28, 35)
-        local activeColorText = Config[activeKey] and Color3.fromRGB(10, 10, 10) or Color3.fromRGB(255, 255, 255)
-        TweenService:Create(toggle, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = activeColorBg, TextColor3 = activeColorText}):Play()
-        
         if callback then callback(Config[activeKey]) end
     end)
     return toggle, label
 end
 
--- [[ UPDATED MULTI-TOGGLE FOR AIM SYSTEM WITHOUT UNLOCKED ]] --
+-- [[ MULTI-TOGGLE FOR AIM SYSTEM ]] --
 local function CreateAimSystemCategory(container, order)
     local frame = Instance.new("Frame", container)
     frame.Size = UDim2.new(0.98, 0, 0, 72)
@@ -527,8 +519,8 @@ local function CreateAimSystemCategory(container, order)
     toggleAim.Size = UDim2.new(0, 85, 0, 26)
     toggleAim.Position = UDim2.new(0, 12, 0.5, 2)
     toggleAim.Text = Config.AimActive and "AIM: ON" or "AIM: OFF"
-    toggleAim.BackgroundColor3 = Config.AimActive and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(28, 28, 35)
-    toggleAim.TextColor3 = Config.AimActive and Color3.fromRGB(10, 10, 10) or Color3.fromRGB(255, 255, 255)
+    toggleAim.BackgroundColor3 = Color3.fromRGB(35, 35, 45) -- TETAP BERWARNA GELAP
+    toggleAim.TextColor3 = Color3.fromRGB(255, 255, 255)
     toggleAim.Font = Enum.Font.MontserratBold
     toggleAim.TextSize = 9
     Instance.new("UICorner", toggleAim).CornerRadius = UDim.new(0, 5)
@@ -547,8 +539,8 @@ local function CreateAimSystemCategory(container, order)
     toggleWall.Size = UDim2.new(0, 100, 0, 26)
     toggleWall.Position = UDim2.new(0, 216, 0.5, 2)
     toggleWall.Text = Config.AimWallActive and "WALL: IGNORE" or "WALL: CHECK"
-    toggleWall.BackgroundColor3 = Config.AimWallActive and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(28, 28, 35)
-    toggleWall.TextColor3 = Config.AimWallActive and Color3.fromRGB(10, 10, 10) or Color3.fromRGB(255, 255, 255)
+    toggleWall.BackgroundColor3 = Color3.fromRGB(35, 35, 45) -- TETAP BERWARNA GELAP SEJAK AWAL
+    toggleWall.TextColor3 = Color3.fromRGB(255, 255, 255)
     toggleWall.Font = Enum.Font.MontserratBold
     toggleWall.TextSize = 9
     Instance.new("UICorner", toggleWall).CornerRadius = UDim.new(0, 5)
@@ -556,13 +548,9 @@ local function CreateAimSystemCategory(container, order)
     toggleAim.MouseButton1Click:Connect(function()
         Config.AimActive = not Config.AimActive
         toggleAim.Text = Config.AimActive and "AIM: ON" or "AIM: OFF"
-        local clrBg = Config.AimActive and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(28, 28, 35)
-        local clrTxt = Config.AimActive and Color3.fromRGB(10, 10, 10) or Color3.fromRGB(255, 255, 255)
-        TweenService:Create(toggleAim, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = clrBg, TextColor3 = clrTxt}):Play()
     end)
 
     toggleMode.MouseButton1Click:Connect(function()
-        -- Hanya bergantian antara Mouse dan Center (Unlocked Dihapus)
         if Config.AimMode == "Mouse" then
             Config.AimMode = "Center"
         else
@@ -575,9 +563,6 @@ local function CreateAimSystemCategory(container, order)
     toggleWall.MouseButton1Click:Connect(function()
         Config.AimWallActive = not Config.AimWallActive
         toggleWall.Text = Config.AimWallActive and "WALL: IGNORE" or "WALL: CHECK"
-        local clrBg = Config.AimWallActive and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(28, 28, 35)
-        local clrTxt = Config.AimWallActive and Color3.fromRGB(10, 10, 10) or Color3.fromRGB(255, 255, 255)
-        TweenService:Create(toggleWall, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = clrBg, TextColor3 = clrTxt}):Play()
     end)
 end
 
@@ -620,16 +605,13 @@ local function CreateActionCategory(container, text, order, callback)
         running = true
         label.Text = string.upper(text) .. "   //   EXECUTING..."
         toggle.Text = "[ WORKING ]"
-        TweenService:Create(toggle, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = Color3.fromRGB(40, 40, 45)}):Play()
         if callback then callback() end
         task.wait(0.5)
         label.Text = string.upper(text) .. "   //   PROCESS FINISHED"
         toggle.Text = "[ SUCCESS ]"
-        TweenService:Create(toggle, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = Color3.fromRGB(255, 255, 255), TextColor3 = Color3.fromRGB(10, 10, 10)}):Play()
         task.wait(1.5)
         label.Text = string.upper(text) .. "   //   STATUS READY"
         toggle.Text = "[ READY ]"
-        TweenService:Create(toggle, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = Color3.fromRGB(28, 28, 35), TextColor3 = Color3.fromRGB(255, 255, 255)}):Play()
         running = false
     end)
 end
@@ -661,8 +643,8 @@ local function CreateTargetCategory(container, text, order)
     toggle.Size = UDim2.new(0, 120, 0, 26)
     toggle.Position = UDim2.new(0, 12, 0.5, 3)
     toggle.Text = Config.AimTarget == "Head" and "[ HEAD ]" or "[ TORSO ]"
-    toggle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    toggle.TextColor3 = Color3.fromRGB(10, 10, 10)
+    toggle.BackgroundColor3 = Color3.fromRGB(35, 35, 45) -- GELAP
+    toggle.TextColor3 = Color3.fromRGB(255, 255, 255)
     toggle.Font = Enum.Font.MontserratBold
     toggle.TextSize = 9
     Instance.new("UICorner", toggle).CornerRadius = UDim.new(0, 5)
@@ -864,8 +846,6 @@ StalkBtn.MouseButton1Click:Connect(function()
         if target then
             StalkTargetPlayer = target
             StalkBtn.Text = "STALK: ON"
-            StalkBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-            StalkBtn.TextColor3 = Color3.fromRGB(10, 10, 10)
         else
             Config.StalkActive = false
             StalkBtn.Text = "NOT FOUND"
@@ -875,27 +855,25 @@ StalkBtn.MouseButton1Click:Connect(function()
     else
         StalkTargetPlayer = nil
         StalkBtn.Text = "STALK: OFF"
-        StalkBtn.BackgroundColor3 = Color3.fromRGB(28, 28, 35)
-        StalkBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     end
 end)
 
 -- ========================================== --
---  TAB 5: INFO PANEL                         --
+--  TAB 5: INFO PANEL (UPDATED WITH COPY)     --
 -- ========================================== --
 CreateSubHeader(TabInfo, "Credits & Information", 1)
 local InfoFrame = Instance.new("Frame", TabInfo)
-InfoFrame.Size = UDim2.new(0.98, 0, 0, 110)
+InfoFrame.Size = UDim2.new(0.98, 0, 0, 140)
 InfoFrame.LayoutOrder = 2
 InfoFrame.BackgroundTransparency = 0.35
 InfoFrame.BackgroundColor3 = Color3.fromRGB(14, 14, 18)
 Instance.new("UICorner", InfoFrame).CornerRadius = UDim.new(0, 8)
 
 local InfoTextBox = Instance.new("TextBox", InfoFrame)
-InfoTextBox.Size = UDim2.new(1, -20, 1, -20)
+InfoTextBox.Size = UDim2.new(1, -20, 0, 70)
 InfoTextBox.Position = UDim2.new(0, 10, 0, 10)
 InfoTextBox.BackgroundTransparency = 1
-InfoTextBox.Text = "VOID UI V2 - PREMIUM MONOCHROME\n\nPress 'RightControl' to Toggle Menu visibility.\nJoin Discord for updates:\n" .. DISCORD_LINK
+InfoTextBox.Text = "This script is made by : ?\nbtw join our discord link below\n" .. DISCORD_LINK
 InfoTextBox.TextColor3 = Color3.fromRGB(200, 200, 200)
 InfoTextBox.Font = Enum.Font.MontserratMedium
 InfoTextBox.TextSize = 10
@@ -903,6 +881,35 @@ InfoTextBox.ClearTextOnFocus = false
 InfoTextBox.TextEditable = false 
 InfoTextBox.TextWrapped = true
 InfoTextBox.MultiLine = true
+
+-- Tombol Auto Copy Link Discord
+local CopyBtn = Instance.new("TextButton", InfoFrame)
+CopyBtn.Size = UDim2.new(0.9, 0, 0, 32)
+CopyBtn.Position = UDim2.new(0.05, 0, 1, -42)
+CopyBtn.BackgroundColor3 = Color3.fromRGB(28, 28, 35)
+CopyBtn.Text = "AUTO COPY DISCORD LINK"
+CopyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+CopyBtn.Font = Enum.Font.MontserratBold
+CopyBtn.TextSize = 9
+Instance.new("UICorner", CopyBtn).CornerRadius = UDim.new(0, 6)
+
+local CopyStroke = Instance.new("UIStroke", CopyBtn)
+CopyStroke.Color = Color3.fromRGB(255, 255, 255)
+CopyStroke.Thickness = 1
+CopyStroke.Transparency = 0.8
+
+CopyBtn.MouseButton1Click:Connect(function()
+    if setclipboard then
+        setclipboard(DISCORD_LINK)
+        CopyBtn.Text = "COPIED TO CLIPBOARD!"
+        task.wait(1.5)
+        CopyBtn.Text = "AUTO COPY DISCORD LINK"
+    else
+        CopyBtn.Text = "NOT SUPPORTED BY EXECUTOR"
+        task.wait(1.5)
+        CopyBtn.Text = "AUTO COPY DISCORD LINK"
+    end
+end)
 
 -- ========================================== --
 -- [[ FUNCTIONALITIES CORE LOOP ENGINE ]]     --
@@ -959,9 +966,9 @@ local function GetClosestPlayerForAim()
     
     local originPos
     if Config.AimMode == "Center" then
-        originPos = Camera.ViewportSize / 2 -- Lock di tengah layar
+        originPos = Camera.ViewportSize / 2
     else
-        originPos = UserInputService:GetMouseLocation() -- Mengikuti mouse
+        originPos = UserInputService:GetMouseLocation()
     end
 
     for _, p in pairs(Players:GetPlayers()) do
