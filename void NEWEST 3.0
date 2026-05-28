@@ -17,6 +17,7 @@ local Config = {
     AimActive = false,
     AimWallActive = false, 
     AimTarget = "Head",
+    AimMode = "Mouse", -- MODE: "Center" atau "Mouse" (Unlocked sudah dihapus)
     HitboxActive = false,
     BoxEspActive = false,
     TracerActive = false,
@@ -24,7 +25,7 @@ local Config = {
     SpeedActive = false,
     JumpActive = false,
     FlyActive = false,
-    NoclipActive = false, -- NOCLIP IS BACK SAFELY
+    NoclipActive = false, 
     FovRadius = 150,
     HitboxSize = 15,
     SpeedValue = 100,
@@ -149,7 +150,7 @@ local function MakeDraggable(frame)
     frame.InputChanged:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseMovement then dragInput = input end
     end)
-    RunService.RenderStepped:Connect(function()
+    RunService.Heartbeat:Connect(function()
         if dragging and dragInput then
             local delta = dragInput.Position - dragStart
             local targetPos = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
@@ -303,7 +304,7 @@ local function CreateTab(tabName)
     local scrollFrame = Instance.new("ScrollingFrame", ContentContainer)
     scrollFrame.Size = UDim2.new(1, 0, 1, 0)
     scrollFrame.BackgroundTransparency = 1
-    scrollFrame.CanvasSize = UDim2.new(0, 0, 6.5, 0) -- Adjusted canvas size for new item
+    scrollFrame.CanvasSize = UDim2.new(0, 0, 6.5, 0)
     scrollFrame.ScrollBarThickness = 3
     scrollFrame.ScrollBarImageColor3 = Color3.fromRGB(255, 255, 255)
     scrollFrame.Visible = false
@@ -434,9 +435,11 @@ local function CreateAdjuster(container, text, activeKey, valueKey, order)
         if not Config[activeKey] then
             local char = LocalPlayer.Character
             local hum = char and char:FindFirstChildOfClass("Humanoid")
-            if hum then
-                if activeKey == "SpeedActive" then hum.WalkSpeed = 16
-                elseif activeKey == "JumpActive" then hum.JumpPower = 50 end
+            local hrd = char and char:FindFirstChild("HumanoidRootPart")
+            if activeKey == "SpeedActive" and hrd then
+                hrd.AssemblyLinearVelocity = Vector3.new(0, hrd.AssemblyLinearVelocity.Y, 0)
+            elseif activeKey == "JumpActive" and hum then 
+                hum.JumpPower = 50 
             end
         end
     end)
@@ -496,9 +499,10 @@ local function CreateToggleCategory(container, text, activeKey, order, callback)
     return toggle, label
 end
 
-local function CreateDualToggleCategory(container, text1, text2, key1, key2, order)
+-- [[ UPDATED MULTI-TOGGLE FOR AIM SYSTEM WITHOUT UNLOCKED ]] --
+local function CreateAimSystemCategory(container, order)
     local frame = Instance.new("Frame", container)
-    frame.Size = UDim2.new(0.98, 0, 0, 68)
+    frame.Size = UDim2.new(0.98, 0, 0, 72)
     frame.LayoutOrder = order or 0
     frame.BackgroundColor3 = Color3.fromRGB(14, 14, 18)
     frame.BackgroundTransparency = 0.35
@@ -510,49 +514,70 @@ local function CreateDualToggleCategory(container, text1, text2, key1, key2, ord
     fStroke.Transparency = 0.8
 
     local label = Instance.new("TextLabel", frame)
-    label.Size = UDim2.new(1, -20, 0, 26)
-    label.Position = UDim2.new(0, 12, 0, 5)
-    label.Text = string.upper(text1) .. " & " .. string.upper(text2)
+    label.Size = UDim2.new(1, -20, 0, 24)
+    label.Position = UDim2.new(0, 12, 0, 4)
+    label.Text = "LOCK AIM ASSIST (RMB)   //   MODE: " .. string.upper(Config.AimMode)
     label.TextColor3 = Color3.fromRGB(255, 255, 255)
     label.BackgroundTransparency = 1
     label.Font = Enum.Font.MontserratBold
     label.TextSize = 9
     label.TextXAlignment = Enum.TextXAlignment.Left
 
-    local toggle1 = Instance.new("TextButton", frame)
-    toggle1.Size = UDim2.new(0.43, 0, 0, 26)
-    toggle1.Position = UDim2.new(0, 12, 0.5, 3)
-    toggle1.Text = Config[key1] and "AIM: ON" or "AIM: OFF"
-    toggle1.BackgroundColor3 = Config[key1] and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(28, 28, 35)
-    toggle1.TextColor3 = Config[key1] and Color3.fromRGB(10, 10, 10) or Color3.fromRGB(255, 255, 255)
-    toggle1.Font = Enum.Font.MontserratBold
-    toggle1.TextSize = 9
-    Instance.new("UICorner", toggle1).CornerRadius = UDim.new(0, 5)
+    local toggleAim = Instance.new("TextButton", frame)
+    toggleAim.Size = UDim2.new(0, 85, 0, 26)
+    toggleAim.Position = UDim2.new(0, 12, 0.5, 2)
+    toggleAim.Text = Config.AimActive and "AIM: ON" or "AIM: OFF"
+    toggleAim.BackgroundColor3 = Config.AimActive and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(28, 28, 35)
+    toggleAim.TextColor3 = Config.AimActive and Color3.fromRGB(10, 10, 10) or Color3.fromRGB(255, 255, 255)
+    toggleAim.Font = Enum.Font.MontserratBold
+    toggleAim.TextSize = 9
+    Instance.new("UICorner", toggleAim).CornerRadius = UDim.new(0, 5)
 
-    local toggle2 = Instance.new("TextButton", frame)
-    toggle2.Size = UDim2.new(0.52, 0, 0, 26)
-    toggle2.Position = UDim2.new(0.52, 0, 0.5, 3)
-    toggle2.Text = Config[key2] and "WALL: IGNORE" or "WALL: CHECK"
-    toggle2.BackgroundColor3 = Config[key2] and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(28, 28, 35)
-    toggle2.TextColor3 = Config[key2] and Color3.fromRGB(10, 10, 10) or Color3.fromRGB(255, 255, 255)
-    toggle2.Font = Enum.Font.MontserratBold
-    toggle2.TextSize = 9
-    Instance.new("UICorner", toggle2).CornerRadius = UDim.new(0, 5)
+    local toggleMode = Instance.new("TextButton", frame)
+    toggleMode.Size = UDim2.new(0, 105, 0, 26)
+    toggleMode.Position = UDim2.new(0, 104, 0.5, 2)
+    toggleMode.Text = "LOCK: " .. string.upper(Config.AimMode)
+    toggleMode.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+    toggleMode.TextColor3 = Color3.fromRGB(255, 255, 255)
+    toggleMode.Font = Enum.Font.MontserratBold
+    toggleMode.TextSize = 9
+    Instance.new("UICorner", toggleMode).CornerRadius = UDim.new(0, 5)
 
-    toggle1.MouseButton1Click:Connect(function()
-        Config[key1] = not Config[key1]
-        toggle1.Text = Config[key1] and "AIM: ON" or "AIM: OFF"
-        local clrBg = Config[key1] and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(28, 28, 35)
-        local clrTxt = Config[key1] and Color3.fromRGB(10, 10, 10) or Color3.fromRGB(255, 255, 255)
-        TweenService:Create(toggle1, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = clrBg, TextColor3 = clrTxt}):Play()
+    local toggleWall = Instance.new("TextButton", frame)
+    toggleWall.Size = UDim2.new(0, 100, 0, 26)
+    toggleWall.Position = UDim2.new(0, 216, 0.5, 2)
+    toggleWall.Text = Config.AimWallActive and "WALL: IGNORE" or "WALL: CHECK"
+    toggleWall.BackgroundColor3 = Config.AimWallActive and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(28, 28, 35)
+    toggleWall.TextColor3 = Config.AimWallActive and Color3.fromRGB(10, 10, 10) or Color3.fromRGB(255, 255, 255)
+    toggleWall.Font = Enum.Font.MontserratBold
+    toggleWall.TextSize = 9
+    Instance.new("UICorner", toggleWall).CornerRadius = UDim.new(0, 5)
+
+    toggleAim.MouseButton1Click:Connect(function()
+        Config.AimActive = not Config.AimActive
+        toggleAim.Text = Config.AimActive and "AIM: ON" or "AIM: OFF"
+        local clrBg = Config.AimActive and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(28, 28, 35)
+        local clrTxt = Config.AimActive and Color3.fromRGB(10, 10, 10) or Color3.fromRGB(255, 255, 255)
+        TweenService:Create(toggleAim, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = clrBg, TextColor3 = clrTxt}):Play()
     end)
 
-    toggle2.MouseButton1Click:Connect(function()
-        Config[key2] = not Config[key2]
-        toggle2.Text = Config[key2] and "WALL: IGNORE" or "WALL: CHECK"
-        local clrBg = Config[key2] and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(28, 28, 35)
-        local clrTxt = Config[key2] and Color3.fromRGB(10, 10, 10) or Color3.fromRGB(255, 255, 255)
-        TweenService:Create(toggle2, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = clrBg, TextColor3 = clrTxt}):Play()
+    toggleMode.MouseButton1Click:Connect(function()
+        -- Hanya bergantian antara Mouse dan Center (Unlocked Dihapus)
+        if Config.AimMode == "Mouse" then
+            Config.AimMode = "Center"
+        else
+            Config.AimMode = "Mouse"
+        end
+        toggleMode.Text = "LOCK: " .. string.upper(Config.AimMode)
+        label.Text = "LOCK AIM ASSIST (RMB)   //   MODE: " .. string.upper(Config.AimMode)
+    end)
+
+    toggleWall.MouseButton1Click:Connect(function()
+        Config.AimWallActive = not Config.AimWallActive
+        toggleWall.Text = Config.AimWallActive and "WALL: IGNORE" or "WALL: CHECK"
+        local clrBg = Config.AimWallActive and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(28, 28, 35)
+        local clrTxt = Config.AimWallActive and Color3.fromRGB(10, 10, 10) or Color3.fromRGB(255, 255, 255)
+        TweenService:Create(toggleWall, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = clrBg, TextColor3 = clrTxt}):Play()
     end)
 end
 
@@ -667,7 +692,7 @@ local TabInfo = CreateTab("Info")
 local idx = 1
 CreateSubHeader(TabMain, "Combat Assist System", idx) idx = idx + 1
 CreateAdjuster(TabMain, "SHOW FOV CIRCLE & SIZE", "ShowFov", "FovRadius", idx) idx = idx + 1
-CreateDualToggleCategory(TabMain, "LOCK AIM ASSIST (RMB)", "WALL AIM ASSIST", "AimActive", "AimWallActive", idx) idx = idx + 1
+CreateAimSystemCategory(TabMain, idx) idx = idx + 1 
 CreateTargetCategory(TabMain, "SELECT AIM TARGET POOL", idx) idx = idx + 1
 
 CreateSubHeader(TabMain, "Visual ESP & Hitbox Panel", idx) idx = idx + 1
@@ -680,7 +705,7 @@ CreateSubHeader(TabMain, "Movement Systems", idx) idx = idx + 1
 CreateAdjuster(TabMain, "SPEED HACK", "SpeedActive", "SpeedValue", idx) idx = idx + 1
 CreateAdjuster(TabMain, "HIGH JUMP", "JumpActive", "JumpValue", idx) idx = idx + 1
 CreateAdjuster(TabMain, "NEURAL FLY", "FlyActive", "FlyValue", idx) idx = idx + 1
-CreateToggleCategory(TabMain, "BYPASS NOCLIP (WALLPASS)", "NoclipActive", idx) idx = idx + 1 -- NOCLIP TOGGLE ADDED
+CreateToggleCategory(TabMain, "BYPASS NOCLIP (WALLPASS)", "NoclipActive", idx) idx = idx + 1 
 
 CreateSubHeader(TabMain, "Player Utility Frame", idx) idx = idx + 1
 CreateToggleCategory(TabMain, "TOGGLE INVISIBLE (LOCAL)", "InvisibleActive", idx, function(state)
@@ -883,7 +908,6 @@ InfoTextBox.MultiLine = true
 -- [[ FUNCTIONALITIES CORE LOOP ENGINE ]]     --
 -- ========================================== --
 
--- Transisi Visibility via RightControl dengan Animasi Fade / Scale
 local isMainFrameVisible = true
 UserInputService.InputBegan:Connect(function(input, processed)
     if not processed and input.KeyCode == Enum.KeyCode.RightControl then
@@ -899,41 +923,25 @@ UserInputService.InputBegan:Connect(function(input, processed)
     end
 end)
 
--- ANIMASI MINIMIZE
 MinBtn.MouseButton1Click:Connect(function()
-    local animOut = TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
-        Size = UDim2.new(0, 0, 0, 0),
-        BackgroundTransparency = 1,
-        ImageTransparency = 1
-    })
+    local animOut = TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), {Size = UDim2.new(0, 0, 0, 0), BackgroundTransparency = 1, ImageTransparency = 1})
     animOut:Play()
     animOut.Completed:Connect(function()
         MainFrame.Visible = false
         MaxBtn.Visible = true
         MaxBtn.Size = UDim2.new(0, 0, 0, 0)
         MaxBtn.TextSize = 0
-        TweenService:Create(MaxBtn, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-            Size = UDim2.new(0, 100, 0, 40),
-            TextSize = 11
-        }):Play()
+        TweenService:Create(MaxBtn, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.new(0, 100, 0, 40), TextSize = 11}):Play()
     end)
 end)
 
--- ANIMASI MAXIMIZE
 MaxBtn.MouseButton1Click:Connect(function()
-    local animMaxOut = TweenService:Create(MaxBtn, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-        Size = UDim2.new(0, 0, 0, 0),
-        TextSize = 0
-    })
+    local animMaxOut = TweenService:Create(MaxBtn, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Size = UDim2.new(0, 0, 0, 0), TextSize = 0})
     animMaxOut:Play()
     animMaxOut.Completed:Connect(function()
         MaxBtn.Visible = false
         MainFrame.Visible = true
-        TweenService:Create(MainFrame, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-            Size = UDim2.new(0, 580, 0, 440),
-            BackgroundTransparency = 0.05,
-            ImageTransparency = 0.75
-        }):Play()
+        TweenService:Create(MainFrame, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.new(0, 580, 0, 440), BackgroundTransparency = 0.05, ImageTransparency = 0.75}):Play()
     end)
 end)
 
@@ -944,10 +952,17 @@ TpBtn.MouseButton1Click:Connect(function()
     end
 end)
 
-local function GetClosestPlayerToMouse()
+-- [[ ADVANCED AIM TARGET LOOKUP FUNCTION ]] --
+local function GetClosestPlayerForAim()
     local target = nil
     local maxDist = Config.FovRadius
-    local mousePos = UserInputService:GetMouseLocation()
+    
+    local originPos
+    if Config.AimMode == "Center" then
+        originPos = Camera.ViewportSize / 2 -- Lock di tengah layar
+    else
+        originPos = UserInputService:GetMouseLocation() -- Mengikuti mouse
+    end
 
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild(Config.AimTarget) and p.Character:FindFirstChildOfClass("Humanoid") and p.Character:FindFirstChildOfClass("Humanoid").Health > 0 then
@@ -960,7 +975,7 @@ local function GetClosestPlayerToMouse()
                     if #rayParts > 0 then continue end
                 end
                 
-                local dist = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
+                local dist = (Vector2.new(screenPos.X, screenPos.Y) - originPos).Magnitude
                 if dist < maxDist then
                     maxDist = dist
                     target = p
@@ -980,13 +995,13 @@ LocalPlayer.Idled:Connect(function()
     end
 end)
 
--- [[ SEPARATE SAFE NOCLIP STEP LOOP ]] --
+-- [[ OPTIMIZED PHYSICS LOOP (Noclip) ]] --
 RunService.Stepped:Connect(function()
-    if Config.NoclipActive then
-        local myChar = LocalPlayer.Character
-        if myChar then
+    local myChar = LocalPlayer.Character
+    if myChar then
+        if Config.NoclipActive then
             for _, part in pairs(myChar:GetDescendants()) do
-                if part:IsA("BasePart") and part.CanCollide == true then
+                if part:IsA("BasePart") and part.CanCollide then
                     part.CanCollide = false
                 end
             end
@@ -994,107 +1009,22 @@ RunService.Stepped:Connect(function()
     end
 end)
 
-RunService.RenderStepped:Connect(function()
-    local mouseLocation = UserInputService:GetMouseLocation()
-    
-    if FovCircle then
-        FovCircle.Position = mouseLocation
-        FovCircle.Radius = Config.FovRadius
-        FovCircle.Visible = Config.ShowFov
-    end
-
-    if Config.AimActive and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
-        local target = GetClosestPlayerToMouse()
-        if target and target.Character and target.Character:FindFirstChild(Config.AimTarget) then
-            Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.Character[Config.AimTarget].Position)
-        end
-    end
-
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer and EspCache[p] then
-            local box = EspCache[p].Box
-            local tracer = EspCache[p].Tracer
-            local hasObjects = (p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChildOfClass("Humanoid") and p.Character:FindFirstChildOfClass("Humanoid").Health > 0)
-            
-            if hasObjects then
-                local hrp = p.Character.HumanoidRootPart
-                local screenPos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
-                
-                if Config.HitboxActive then
-                    hrp.Size = Vector3.new(Config.HitboxSize, Config.HitboxSize, Config.HitboxSize)
-                    hrp.Transparency = 0.7
-                    hrp.CanCollide = false
-                else
-                    hrp.Size = Vector3.new(2, 2, 1)
-                    hrp.Transparency = 1
-                    hrp.CanCollide = true
-                end
-
-                local highlight = p.Character:FindFirstChild("VoidChams")
-                if Config.ChamsEspActive then
-                    if not highlight then
-                        highlight = Instance.new("Highlight")
-                        highlight.Name = "VoidChams"
-                        highlight.FillColor = Color3.fromRGB(255, 255, 255)
-                        highlight.OutlineColor = Color3.fromRGB(0, 0, 0)
-                        highlight.FillTransparency = 0.4
-                        highlight.OutlineTransparency = 0.2
-                        highlight.Parent = p.Character
-                    end
-                elseif highlight then
-                    highlight:Destroy()
-                end
-
-                if onScreen then
-                    local top, topOn = Camera:WorldToViewportPoint((hrp.CFrame * CFrame.new(0, 3, 0)).Position)
-                    local bottom, bottomOn = Camera:WorldToViewportPoint((hrp.CFrame * CFrame.new(0, -3.5, 0)).Position)
-                    local height = math.abs(top.Y - bottom.Y)
-                    local width = height * 0.6
-                    
-                    if Config.BoxEspActive then
-                        box.Size = Vector2.new(width, height)
-                        box.Position = Vector2.new(screenPos.X - width / 2, screenPos.Y - height / 2)
-                        box.Visible = true
-                    else
-                        box.Visible = false
-                    end
-
-                    if Config.TracerActive then
-                        tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
-                        tracer.To = Vector2.new(screenPos.X, screenPos.Y)
-                        tracer.Visible = true
-                    else
-                        tracer.Visible = false
-                    end
-                else
-                    box.Visible = false
-                    tracer.Visible = false
-                end
-            else
-                box.Visible = false
-                tracer.Visible = false
-                if p.Character and p.Character:FindFirstChild("VoidChams") then
-                    p.Character.VoidChams:Destroy()
-                end
-            end
-        end
-    end
-
+-- [[ MOVEMENT ENGINE ]] --
+RunService.Heartbeat:Connect(function()
     local myChar = LocalPlayer.Character
     local myHrd = myChar and myChar:FindFirstChild("HumanoidRootPart")
     local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
 
     if myChar and myHrd and myHum then
         if Config.SpeedActive then 
-            myHum.WalkSpeed = Config.SpeedValue 
-        else
-            myHum.WalkSpeed = 16
+            if myHum.MoveDirection.Magnitude > 0 then
+                local targetVelocity = myHum.MoveDirection * Config.SpeedValue
+                myHrd.AssemblyLinearVelocity = Vector3.new(targetVelocity.X, myHrd.AssemblyLinearVelocity.Y, targetVelocity.Z)
+            end
         end
         
         if Config.JumpActive then 
             myHum.JumpPower = Config.JumpValue 
-        else
-            myHum.JumpPower = 50
         end
 
         if Config.FlyActive then
@@ -1128,16 +1058,113 @@ RunService.RenderStepped:Connect(function()
         end
 
         if Config.StalkActive and StalkTargetPlayer and StalkTargetPlayer.Character and StalkTargetPlayer.Character:FindFirstChild("HumanoidRootPart") then
-            local stalkHrp = StalkTargetPlayer.Character.HumanoidRootPart
-            myHrd.CFrame = stalkHrp.CFrame * CFrame.new(0, 0, 3.5)
+            myHrd.CFrame = StalkTargetPlayer.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 3.5)
         end
-        
-        if Config.ThirdPersonActive then
-            LocalPlayer.CameraMaxZoomDistance = Config.ThirdPersonDist
-            LocalPlayer.CameraMinZoomDistance = Config.ThirdPersonDist
+    end
+end)
+
+-- [[ RENDER VISUAL & AIM LOCK LOOP ]] --
+RunService.RenderStepped:Connect(function()
+    local mouseLocation = UserInputService:GetMouseLocation()
+    
+    if FovCircle then
+        if Config.AimMode == "Center" then
+            FovCircle.Position = Camera.ViewportSize / 2
         else
-            LocalPlayer.CameraMaxZoomDistance = 400
-            LocalPlayer.CameraMinZoomDistance = 0.5
+            FovCircle.Position = mouseLocation
         end
+        FovCircle.Radius = Config.FovRadius
+        FovCircle.Visible = Config.ShowFov
+    end
+
+    -- Core Aim Processing Engine
+    if Config.AimActive and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
+        local target = GetClosestPlayerForAim()
+        if target and target.Character and target.Character:FindFirstChild(Config.AimTarget) then
+            Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.Character[Config.AimTarget].Position)
+        end
+    end
+
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and EspCache[p] then
+            local box = EspCache[p].Box
+            local tracer = EspCache[p].Tracer
+            local hasObjects = (p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChildOfClass("Humanoid") and p.Character:FindFirstChildOfClass("Humanoid").Health > 0)
+            
+            if hasObjects then
+                local hrp = p.Character.HumanoidRootPart
+                local screenPos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+                
+                if Config.HitboxActive then
+                    if hrp.Size.X ~= Config.HitboxSize then
+                        hrp.Size = Vector3.new(Config.HitboxSize, Config.HitboxSize, Config.HitboxSize)
+                        hrp.Transparency = 0.7
+                        hrp.CanCollide = false
+                    end
+                else
+                    if hrp.Size.X ~= 2 then
+                        hrp.Size = Vector3.new(2, 2, 1)
+                        hrp.Transparency = 1
+                        hrp.CanCollide = true
+                    end
+                end
+
+                local highlight = p.Character:FindFirstChild("VoidChams")
+                if Config.ChamsEspActive then
+                    if not highlight then
+                        highlight = Instance.new("Highlight")
+                        highlight.Name = "VoidChams"
+                        highlight.FillColor = Color3.fromRGB(255, 255, 255)
+                        highlight.OutlineColor = Color3.fromRGB(0, 0, 0)
+                        highlight.FillTransparency = 0.4
+                        highlight.OutlineTransparency = 0.2
+                        highlight.Parent = p.Character
+                    end
+                elseif highlight then
+                    highlight:Destroy()
+                end
+
+                if onScreen then
+                    if Config.BoxEspActive or Config.TracerActive then
+                        local top, topOn = Camera:WorldToViewportPoint((hrp.CFrame * CFrame.new(0, 3, 0)).Position)
+                        local bottom, bottomOn = Camera:WorldToViewportPoint((hrp.CFrame * CFrame.new(0, -3.5, 0)).Position)
+                        local height = math.abs(top.Y - bottom.Y)
+                        local width = height * 0.6
+                        
+                        if Config.BoxEspActive then
+                            box.Size = Vector2.new(width, height)
+                            box.Position = Vector2.new(screenPos.X - width / 2, screenPos.Y - height / 2)
+                            box.Visible = true
+                        else box.Visible = false end
+
+                        if Config.TracerActive then
+                            tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
+                            tracer.To = Vector2.new(screenPos.X, screenPos.Y)
+                            tracer.Visible = true
+                        else tracer.Visible = false end
+                    else
+                        box.Visible = false
+                        tracer.Visible = false
+                    end
+                else
+                    box.Visible = false
+                    tracer.Visible = false
+                end
+            else
+                box.Visible = false
+                tracer.Visible = false
+                if p.Character and p.Character:FindFirstChild("VoidChams") then
+                    p.Character.VoidChams:Destroy()
+                end
+            end
+        end
+    end
+    
+    if Config.ThirdPersonActive then
+        LocalPlayer.CameraMaxZoomDistance = Config.ThirdPersonDist
+        LocalPlayer.CameraMinZoomDistance = Config.ThirdPersonDist
+    else
+        LocalPlayer.CameraMaxZoomDistance = 400
+        LocalPlayer.CameraMinZoomDistance = 0.5
     end
 end)
